@@ -1,0 +1,44 @@
+name: CI
+
+# Every push and pull request:
+#   cpu-tests   builds the CPU variants (serial, OpenMP, MPI, GPU-kernel emulator, 3D CPU build)
+#               and runs the full test suite with Open MPI on up to 4 ranks
+#   cuda-build  compiles all CUDA code with the real nvcc for the T4 (sm_75). GitHub's runners have
+#               no GPU, so this proves the code builds; running it on a GPU is the Colab notebook's job.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cpu-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MPI
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq openmpi-bin libopenmpi-dev
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pytest matplotlib
+      - name: Build
+        # x86-64-v2 instead of native: the runner's CPU model varies between jobs
+        run: |
+          make -C core2d -j4 ARCH=-march=x86-64-v2
+          make -C sim3d -j4 ARCH=-march=x86-64-v2
+      - name: Test
+        run: python -m pytest tests -v
+      - name: Benchmark smoke test
+        run: python scripts/benchmark.py --quick --skip-gpu
+
+  cuda-build:
+    runs-on: ubuntu-latest
+    container: nvidia/cuda:12.4.1-devel-ubuntu22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: apt-get update -qq && apt-get install -y -qq make g++ libopenmpi-dev openmpi-bin
+      - name: Build 2D CUDA targets
+        run: make -C core2d cuda CUDA_ARCH=sm_75 ARCH=-march=x86-64-v2
+      - name: Build 3D CUDA targets
+        run: make -C sim3d cuda CUDA_ARCH=sm_75

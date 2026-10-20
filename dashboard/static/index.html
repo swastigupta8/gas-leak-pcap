@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gas Leak Simulator</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #171b21; --line: #2a3038; --ink: #e8ebef; --muted: #8b95a1;
+    --accent: #5aa9ff; --safe: #3fb950; --a1: #e3c341; --a2: #f0883e; --a3: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; padding: 16px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 650; }
+  .sub { color: var(--muted); margin: 0 0 12px; }
+  .map { position: relative; background: #0a0c0f; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; aspect-ratio: 1; cursor: crosshair; }
+  canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+  .hint { position: absolute; left: 12px; top: 10px; color: var(--muted); font-size: 12px; background: #0a0c0fcc; padding: 4px 8px; border-radius: 6px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  label { display: flex; justify-content: space-between; margin: 10px 0 4px; }
+  label span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .row { display: flex; gap: 8px; margin-top: 12px; }
+  button { flex: 1; background: #222831; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .stat { display: flex; justify-content: space-between; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  .stat span:first-child { color: var(--muted); }
+  .legend div { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+  .big { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+    <h1>Toxic gas leak: live dispersion</h1>
+    <p class="sub" id="sub">Connecting…</p>
+    <div class="map" id="map">
+      <canvas id="cv" width="500" height="500"></canvas>
+      <svg class="overlay" id="ov" viewBox="0 0 500 500" preserveAspectRatio="none"></svg>
+      <div class="hint">Click to place the leak</div>
+    </div>
+  </main>
+  <aside>
+    <div class="panel">
+      <h2>Faster than real time</h2>
+      <div class="big" id="rt">–</div>
+      <div class="stat"><span>Backend</span><span id="be">–</span></div>
+      <div class="stat"><span>Grid</span><span id="gr">–</span></div>
+      <div class="stat"><span>Time per step</span><span id="ms">–</span></div>
+      <div class="stat"><span>Cell updates / s</span><span id="ml">–</span></div>
+      <div class="stat"><span>Simulated time</span><span id="st">–</span></div>
+    </div>
+    <div class="panel">
+      <h2>Controls</h2>
+      <label><span>Wind speed</span><span id="wsv"></span></label>
+      <input type="range" id="ws" min="0" max="10" step="0.5" value="3">
+      <label><span>Wind from</span><span id="wdv"></span></label>
+      <input type="range" id="wd" min="0" max="355" step="5" value="225">
+      <label><span>Leak rate</span><span id="rv"></span></label>
+      <input type="range" id="rate" min="-1" max="2" step="0.05" value="1">
+      <label><span>Playback speed</span><span id="spv"></span></label>
+      <input type="range" id="sp" min="0" max="2.3" step="0.05" value="1">
+      <div class="row"><button id="stop">Stop leak</button><button id="reset">Reset</button></div>
+    </div>
+    <div class="panel">
+      <h2>Exposure (60-min AEGL, <span id="chem">styrene</span>)</h2>
+      <div class="legend">
+        <div><span class="sw" style="background:var(--safe)"></span><span>Below AEGL-1: detectable</span></div>
+        <div><span class="sw" style="background:var(--a1)"></span><span>AEGL-1: discomfort</span><span id="a1" style="margin-left:auto"></span></div>
+        <div><span class="sw" style="background:var(--a2)"></span><span>AEGL-2: serious effects</span><span id="a2" style="margin-left:auto"></span></div>
+        <div><span class="sw" style="background:var(--a3)"></span><span>AEGL-3: life-threatening</span><span id="a3" style="margin-left:auto"></span></div>
+      </div>
+      <div class="stat" style="margin-top:8px"><span>Peak concentration</span><span id="pk">–</span></div>
+      <p class="note">Teaching model: 2D, flat terrain, uniform wind, gas mixed through a 10 m ground layer. Not for operational decisions.</p>
+    </div>
+  </aside>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+let ws, S = null, lut = null, img = null;
+
+// Colour lookup for the 256 frame codes. code = 255 * log10(1 + ppm) / log_max.
+function buildLut(s) {
+  const c = s.chemical, L = new Uint8ClampedArray(256 * 4);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const css = getComputedStyle(document.documentElement);
+  const col = v => hex(css.getPropertyValue(v).trim());
+  for (let k = 0; k < 256; k++) {
+    const ppm = Math.pow(10, k / 255 * s.log_max) - 1;
+    let rgb, a;
+    if (ppm < 0.05) { rgb = [0, 0, 0]; a = 0; }
+    else if (ppm < c.aegl1) { rgb = col('--safe'); a = 60 + 140 * Math.log10(1 + ppm) / Math.log10(1 + c.aegl1); }
+    else if (ppm < c.aegl2) { rgb = col('--a1'); a = 220; }
+    else if (ppm < c.aegl3) { rgb = col('--a2'); a = 235; }
+    else { rgb = col('--a3'); a = 255; }
+    L.set([...rgb, a], k * 4);
+  }
+  return L;
+}
+
+function draw(bytes) {
+  const n = S.frame;
+  if (!img || img.width !== n) { cv.width = cv.height = n; img = ctx.createImageData(n, n); }
+  const d = img.data;
+  // Frame rows run south -> north; canvas rows run top -> bottom, so flip vertically.
+  for (let y = 0; y < n; y++) {
+    const src = (n - 1 - y) * n, dst = y * n * 4;
+    for (let x = 0; x < n; x++) {
+      const k = bytes[src + x] * 4, o = dst + x * 4;
+      d[o] = lut[k]; d[o + 1] = lut[k + 1]; d[o + 2] = lut[k + 2]; d[o + 3] = lut[k + 3];
+    }
+  }
+  ctx.fillStyle = '#0a0c0f'; ctx.fillRect(0, 0, n, n);
+  // Faint 100 m grid gives the map a sense of scale.
+  ctx.strokeStyle = '#1c222a'; ctx.lineWidth = 1;
+  const step = n * 100 / (S.grid * S.cell_m);
+  for (let p = step; p < n; p += step) { ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, n); ctx.moveTo(0, p); ctx.lineTo(n, p); ctx.stroke(); }
+  createImageBitmap(img).then(b => ctx.drawImage(b, 0, 0));
+}
+
+function overlay() {
+  const ov = $('ov'), km = S.grid * S.cell_m / 1000;
+  let h = '';
+  if (S.leak) {
+    const x = (S.leak[0] + 0.5) / S.grid * 500, y = 500 - (S.leak[1] + 0.5) / S.grid * 500;
+    h += `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="#fff" stroke-width="2"/>`;
+  }
+  // Wind arrow points the way the wind blows (opposite to "from").
+  const r = (S.wind_from + 180) * Math.PI / 180, L = 14 + 4 * S.wind_speed;
+  const ax = 460, ay = 460, bx = ax + L * Math.sin(r), by = ay - L * Math.cos(r);
+  h += `<circle cx="${ax}" cy="${ay}" r="30" fill="#0a0c0fcc" stroke="#2a3038"/>`;
+  h += `<line x1="${ax - (bx - ax) / 2}" y1="${ay - (by - ay) / 2}" x2="${ax + (bx - ax) / 2}" y2="${ay + (by - ay) / 2}" stroke="#5aa9ff" stroke-width="3" marker-end="url(#ah)"/>`;
+  h += `<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5aa9ff"/></marker></defs>`;
+  h += `<text x="12" y="488" fill="#8b95a1" font-size="12">${km.toFixed(1)} km × ${km.toFixed(1)} km · grid 100 m</text>`;
+  ov.innerHTML = h;
+}
+
+function stats(s) {
+  const first = !S; S = s;
+  if (first) { lut = buildLut(s); $('chem').textContent = s.chemical.name.toLowerCase(); }
+  $('sub').textContent = `${s.chemical.name} release · 2D advection–diffusion on a ${s.grid} × ${s.grid} grid`;
+  $('rt').textContent = s.realtime >= 1 ? `${s.realtime.toFixed(1)}×` : `${s.realtime.toFixed(2)}× (slower)`;
+  $('be').textContent = s.backend; $('gr').textContent = `${s.grid}² at ${s.cell_m} m`;
+  $('ms').textContent = `${s.ms_per_step.toFixed(3)} ms`;
+  $('ml').textContent = `${(s.mlups / 1000).toFixed(2)} G`;
+  const m = Math.floor(s.sim_time / 60), sec = Math.floor(s.sim_time % 60);
+  $('st').textContent = `${m} min ${String(sec).padStart(2, '0')} s`;
+  $('pk').textContent = `${s.peak_ppm < 10 ? s.peak_ppm.toFixed(2) : Math.round(s.peak_ppm).toLocaleString()} ppm`;
+  for (const k of ['aegl1', 'aegl2', 'aegl3']) $('a' + k.slice(-1)).textContent = `${s.area_km2[k].toFixed(3)} km²`;
+  overlay();
+}
+
+function labels() {
+  $('wsv').textContent = `${$('ws').value} m/s`;
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  $('wdv').textContent = `${$('wd').value}° (${dirs[Math.round($('wd').value / 45) % 8]})`;
+  $('rv').textContent = `${Math.pow(10, $('rate').value).toPrecision(2)} kg/s`;
+  $('spv').textContent = `${Math.round(Math.pow(10, $('sp').value))}× real time`;
+}
+
+function send(m) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => {
+    send({ type: 'wind', speed: +$('ws').value, from: +$('wd').value });
+    send({ type: 'rate', kg_s: Math.pow(10, $('rate').value) });
+    send({ type: 'speed', x: Math.pow(10, $('sp').value) });
+  };
+  ws.onmessage = e => { if (typeof e.data === 'string') stats(JSON.parse(e.data)); else if (S) draw(new Uint8Array(e.data)); };
+  ws.onclose = () => { $('sub').textContent = 'Disconnected, retrying…'; setTimeout(connect, 1500); };
+}
+
+$('map').addEventListener('click', e => {
+  const r = $('map').getBoundingClientRect();
+  send({ type: 'leak', x: (e.clientX - r.left) / r.width, y: 1 - (e.clientY - r.top) / r.height });
+});
+$('ws').oninput = $('wd').oninput = () => { labels(); send({ type: 'wind', speed: +$('ws').value, from: +$('wd').value }); };
+$('rate').oninput = () => { labels(); send({ type: 'rate', kg_s: Math.pow(10, $('rate').value) }); };
+$('sp').oninput = () => { labels(); send({ type: 'speed', x: Math.pow(10, $('sp').value) }); };
+$('stop').onclick = () => send({ type: 'stop' });
+$('reset').onclick = () => send({ type: 'reset' });
+labels(); connect();
+</script>
+</body>
+</html>

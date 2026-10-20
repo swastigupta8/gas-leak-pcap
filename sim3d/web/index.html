@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vizag, 7 May 2020</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<style>
+:root {
+  --night: #070d14;
+  --paper: #f1f3ef; --card: #ffffff; --rule: #cdd3ce;
+  --ink: #121719; --ink-2: #4e5a61; --ink-3: #6b767d;
+  --glass: rgba(14,22,28,.82); --glass-line: #3a4851; --light: #e4eaee; --light-2: #cfd6da; --light-3: #9aa6ad;
+  --placard: #f26b1d; --placard-ink: #1b0c02;
+  --a1: #e3b91c; --a2: #ee8320; --a3: #d9342b; --off: #dfe3df;
+  --air: #bfe6ff;
+  --font: Archivo, 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night); color: var(--ink); font: 400 14px/1.45 var(--font); -webkit-font-smoothing: antialiased; }
+button, select, input { font-family: inherit; }
+button { cursor: pointer; }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--placard); outline-offset: 2px; }
+#view { position: absolute; inset: 0; }
+#labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* ---------- labels on the map ---------- */
+.pill { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  background: rgba(241,243,239,.94); border-radius: 999px; padding: 4px 10px 4px 6px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.pill i { width: 10px; height: 10px; border-radius: 50%; background: #87929a; flex: none; }
+.pill.dim { background: rgba(241,243,239,.72); color: var(--ink-2); font-weight: 500; }
+.pill.l1 i { background: var(--a1); } .pill.l2 i { background: var(--a2); } .pill.l3 i { background: var(--a3); box-shadow: 0 0 0 4px rgba(217,52,43,.25); }
+.tag { position: absolute; transform: translate(-50%, -100%); display: flex; align-items: center; gap: 6px; color: #fff; font-size: 13px; font-weight: 700; text-shadow: 0 1px 4px #000; white-space: nowrap; }
+.tag svg { flex: none; }
+.tag.air { color: var(--air); font-weight: 650; font-size: 12.5px; }
+.tag.box { flex-direction: column; align-items: flex-start; gap: 0; transform: translate(34px, 26px); max-width: 280px; white-space: normal; }
+.tag.box b { font-size: 14px; } .tag.box span { font-size: 12.5px; font-weight: 500; color: #c8d4dc; }
+.tag.box::before { content: ''; position: absolute; left: -34px; top: -26px; width: 42px; height: 1.5px; background: #fff; transform: rotate(37deg); transform-origin: left; }
+
+/* ---------- top-left ---------- */
+#title { position: absolute; left: 40px; top: 40px; color: #fff; pointer-events: none; }
+#title h1 { margin: 0; font-size: 26px; font-weight: 800; font-stretch: 112%; letter-spacing: -.01em; }
+#title p { margin: 2px 0 0; font-size: 14px; color: #b8c3ca; }
+#viewSwitch { position: absolute; left: 40px; top: 108px; display: flex; gap: 3px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 10px; padding: 3px; }
+#viewSwitch button { height: 38px; padding: 0 16px; border-radius: 7px; border: 0; background: transparent; color: var(--light-2); font-size: 14px; font-weight: 600; }
+#viewSwitch button[aria-pressed=true] { background: var(--paper); color: var(--ink); font-weight: 700; }
+
+/* ---------- who is exposed ---------- */
+#places { position: absolute; left: 40px; top: 172px; width: 300px; max-height: calc(100% - 300px); display: flex; flex-direction: column;
+  background: var(--paper); border-radius: 14px; padding: 18px 16px 10px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+#places h2 { margin: 0 2px; font-size: 18px; font-weight: 750; }
+#places > p { margin: 4px 2px 12px; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+#plist { overflow: auto; scrollbar-width: thin; margin: 0 -4px; padding: 0 4px; }
+.pc { display: block; width: 100%; text-align: left; border: 0; background: var(--card); border-radius: 10px; padding: 12px; margin-bottom: 8px; color: var(--ink); }
+.pc:hover { box-shadow: 0 0 0 2px var(--rule); }
+.pc .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pc .nm { font-size: 15px; font-weight: 700; } .pc .dist { font-size: 12.5px; color: var(--ink-2); white-space: nowrap; }
+.pc .gauge { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; margin: 9px 0 6px; }
+.pc .gauge span { height: 7px; background: var(--off); }
+.pc .gauge span:first-child { border-radius: 4px 0 0 4px; } .pc .gauge span:last-child { border-radius: 0 4px 4px 0; }
+.pc .gauge .on1 { background: var(--a1); } .pc .gauge .on2 { background: var(--a2); } .pc .gauge .on3 { background: var(--a3); }
+.pc .row2 { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); gap: 8px; }
+.pc .lv1 { color: #8a6d00; } .pc .lv2 { color: #b9600f; } .pc .lv3 { color: var(--a3); }
+.pc .rep { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
+.pr { display: flex; justify-content: space-between; width: 100%; border: 0; background: transparent; border-radius: 10px; padding: 9px 12px; margin-bottom: 2px; text-align: left; gap: 8px; }
+.pr:hover { background: rgba(255,255,255,.6); }
+.pr .nm { font-size: 14.5px; font-weight: 600; color: var(--ink-2); } .pr .dist { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+#places .foot { border-top: 1px solid var(--rule); margin-top: 4px; padding: 10px 2px 4px; font-size: 13px; color: var(--ink-2); line-height: 1.4; }
+#places .foot button { border: 0; background: none; padding: 0; color: var(--ink); text-decoration: underline; font-size: 13px; }
+.empty { font-size: 13px; color: var(--ink-2); padding: 8px 2px 12px; }
+
+/* ---------- top-right ---------- */
+#topRight { position: absolute; right: 32px; top: 32px; display: flex; gap: 10px; }
+.bigbtn { height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--placard); color: var(--placard-ink); font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.ghost { height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--glass-line); background: var(--glass); color: var(--light); font-size: 14px; font-weight: 600; }
+.ghost.sq { width: 44px; padding: 0; font-size: 17px; font-weight: 700; }
+.ghost[aria-expanded=true] { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+
+/* ---------- under the hood ---------- */
+#hood { position: absolute; z-index: 25; right: 32px; top: 88px; width: 380px; background: #161d22; color: var(--light); border-radius: 14px; padding: 18px 20px; box-shadow: 0 12px 32px rgba(0,0,0,.45); display: none; }
+#hood.open { display: block; }
+#hood h2 { margin: 0; font-size: 17px; font-weight: 750; }
+#hood .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+#hood .head span { font-size: 12.5px; color: var(--light-3); }
+#hood .speed { display: flex; align-items: baseline; gap: 10px; margin-top: 12px; }
+#hood .speed b { font-size: 48px; line-height: 1; font-weight: 800; font-stretch: 115%; color: #f6b56a; font-variant-numeric: tabular-nums; }
+#hood .speed span { font-size: 13.5px; color: var(--light-2); line-height: 1.35; }
+#hood .nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #2c363c; }
+#hood .nums b { display: block; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
+#hood .nums span { font-size: 12px; color: var(--light-3); }
+#hood .lab { margin-top: 14px; font-size: 13px; color: var(--light-2); }
+.dseg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; background: #232c32; border-radius: 9px; padding: 3px; margin-top: 6px; }
+.dseg button { height: 36px; border: 0; border-radius: 7px; background: transparent; color: var(--light-2); font-size: 13px; font-weight: 600; }
+.dseg button[aria-pressed=true] { background: var(--light); color: var(--ink); font-weight: 700; }
+#hood p { margin: 8px 0 0; font-size: 12.5px; color: var(--light-3); line-height: 1.45; }
+#hood input[type=range] { width: 100%; accent-color: var(--placard); }
+
+/* ---------- what if drawer ---------- */
+#drawer { position: absolute; z-index: 30; right: 0; top: 0; bottom: 0; width: 400px; background: var(--paper); padding: 26px 26px 0; box-shadow: -16px 0 40px rgba(0,0,0,.35);
+  overflow: auto; transform: translateX(105%); transition: transform .28s ease; }
+#drawer.open { transform: none; }
+#drawer h2 { margin: 0; font-size: 22px; font-weight: 800; font-stretch: 108%; }
+#drawer .head { display: flex; justify-content: space-between; align-items: center; }
+#drawer .x { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--rule); background: #fff; display: grid; place-items: center; }
+#drawer > p { margin: 6px 0 18px; font-size: 14px; color: var(--ink-2); line-height: 1.45; }
+#drawer h3 { margin: 20px 0 10px; font-size: 15px; font-weight: 750; }
+.presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.presets button { text-align: left; border: 1px solid var(--rule); background: #fff; border-radius: 10px; padding: 11px; min-height: 80px; color: var(--ink); }
+.presets button[aria-checked=true] { border: 2px solid var(--ink); padding: 10px; }
+.presets b { display: block; font-size: 13.5px; margin-top: 4px; } .presets span { font-size: 12px; color: var(--ink-2); }
+.windrow { display: grid; grid-template-columns: 112px 1fr; gap: 16px; align-items: center; margin-top: 16px; }
+#dial { width: 112px; height: 112px; touch-action: none; cursor: grab; }
+.windrow .from { font-size: 13px; color: var(--ink-2); }
+.windrow .val { font-size: 30px; font-weight: 800; font-stretch: 110%; font-variant-numeric: tabular-nums; margin: 2px 0 6px; }
+.windrow small { font-size: 12px; color: var(--ink-3); }
+input[type=range] { accent-color: var(--placard); width: 100%; }
+.leakseg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: #fff; }
+.leakseg button { border: 0; background: #fff; color: var(--ink); padding: 9px 4px; min-height: 52px; }
+.leakseg button + button { border-left: 1px solid var(--rule); }
+.leakseg button[aria-checked=true] { background: var(--ink); color: #fff; }
+.leakseg b { display: block; font-size: 13px; } .leakseg span { font-size: 12px; opacity: .8; }
+.wide { width: 100%; height: 44px; border-radius: 10px; border: 1px solid var(--rule); background: #fff; color: var(--ink); font-size: 13.5px; font-weight: 650; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 10px; }
+.fld { display: block; margin-top: 14px; font-size: 13px; color: var(--ink-2); }
+.fld select { display: block; width: 100%; height: 44px; margin-top: 4px; border-radius: 10px; border: 1px solid var(--rule); background: #fff; font-size: 14px; padding: 0 10px; color: var(--ink); }
+.fld output { float: right; color: var(--ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+details { margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 12px; }
+summary { font-size: 14px; font-weight: 650; cursor: pointer; }
+#drawer .actions { position: sticky; bottom: 0; display: flex; gap: 10px; margin: 22px -26px 0; padding: 14px 26px 20px; background: var(--paper); border-top: 1px solid var(--rule); }
+#drawer .go { flex: 1; height: 48px; border-radius: 10px; border: 0; background: var(--placard); color: var(--placard-ink); font-size: 15px; font-weight: 750; }
+#drawer .back { height: 48px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--rule); background: #fff; color: var(--ink); font-size: 14px; font-weight: 650; }
+
+/* ---------- detector ---------- */
+#det { position: absolute; display: none; flex-direction: column; align-items: flex-start; transform: translate(-9px, -9px); }
+#det.open { display: flex; }
+#det .card { margin-left: 10px; width: 236px; background: #1c2226; border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+#det .bar1 { display: flex; justify-content: space-between; align-items: center; color: var(--light-3); font-size: 12px; padding: 0 2px 8px; }
+#det .bar1 button { width: 28px; height: 28px; border: 0; border-radius: 8px; background: #2b3338; color: var(--light-2); display: grid; place-items: center; }
+#det .lcd { background: #b7c4a2; border-radius: 8px; padding: 10px 12px 9px; color: #1f2a16; box-shadow: inset 0 2px 6px rgba(0,0,0,.25); }
+#det .lcd .r { display: flex; align-items: baseline; gap: 6px; }
+#det .lcd .ppm { font-size: 44px; line-height: 1; font-weight: 700; font-stretch: 75%; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+#det .lcd .u { font-size: 15px; font-weight: 700; } #det .lcd .g { margin-left: auto; font-size: 12px; font-weight: 700; }
+#det .lcd .meter { height: 6px; border-radius: 3px; background: rgba(31,42,22,.18); margin: 8px 0 6px; overflow: hidden; }
+#det .lcd .meter i { display: block; height: 100%; background: #1f2a16; }
+#det .lcd .lv { font-size: 12.5px; font-weight: 700; }
+#det .where { color: var(--light-2); font-size: 12.5px; padding: 8px 2px 2px; line-height: 1.4; }
+#det .where span { color: var(--light-3); }
+
+/* ---------- legend ---------- */
+#legend { position: absolute; left: 16px; bottom: 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; color: var(--light); font-size: 13px; background: rgba(10,16,22,.78); border-radius: 10px; padding: 9px 14px; max-width: 46%; }
+#legend span { display: flex; align-items: center; gap: 7px; }
+#legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+#legend .hint { color: var(--light-3); }
+
+/* ---------- play bar ---------- */
+#player { position: absolute; right: 32px; bottom: 22px; display: flex; align-items: center; gap: 14px; background: var(--glass); border: 1px solid var(--glass-line); border-radius: 999px; padding: 6px 8px 6px 6px; color: var(--light); }
+#play { width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--placard); display: grid; place-items: center; box-shadow: 0 0 0 5px rgba(242,107,29,.2); }
+#clock { font-size: 28px; font-weight: 800; font-stretch: 112%; font-variant-numeric: tabular-nums; line-height: 1; }
+#since { font-size: 12.5px; color: var(--light-3); line-height: 1.25; min-width: 104px; }
+#speed { display: flex; gap: 2px; background: rgba(255,255,255,.08); border-radius: 999px; padding: 3px; }
+#speed button { height: 32px; padding: 0 11px; border: 0; border-radius: 999px; background: transparent; color: var(--light-2); font-size: 12.5px; font-weight: 600; }
+#speed button[aria-pressed=true] { background: var(--paper); color: var(--ink); font-weight: 700; }
+#restart { height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--glass-line); background: transparent; color: var(--light-2); font-size: 13px; font-weight: 600; }
+
+/* ---------- about ---------- */
+dialog { border: 0; border-radius: 16px; padding: 0; max-width: 640px; width: calc(100% - 32px); background: var(--paper); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+dialog::backdrop { background: rgba(4,8,12,.6); }
+dialog .in { padding: 24px 26px; max-height: 80vh; overflow: auto; }
+dialog h2 { margin: 0 0 6px; font-size: 22px; font-weight: 800; font-stretch: 108%; }
+dialog h3 { margin: 18px 0 6px; font-size: 15px; font-weight: 750; }
+dialog p, dialog li { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+dialog table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+dialog th { text-align: left; font-weight: 600; color: var(--ink-3); padding: 6px 4px; border-bottom: 1px solid var(--rule); }
+dialog td { padding: 7px 4px; border-bottom: 1px solid var(--rule); font-variant-numeric: tabular-nums; }
+dialog .close { float: right; width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--rule); background: #fff; }
+
+/* ---------- warm-up ---------- */
+#warm { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(5,9,14,.55); transition: opacity .5s; pointer-events: none; }
+#warm div { background: var(--paper); border-radius: 14px; padding: 20px 24px; width: 360px; }
+#warm b { font-size: 18px; font-weight: 750; } #warm p { margin: 4px 0 12px; color: var(--ink-2); font-size: 13.5px; }
+#warm .pb { height: 5px; background: var(--off); border-radius: 3px; overflow: hidden; } #warm .pb i { display: block; height: 100%; width: 0; background: var(--placard); transition: width .3s; }
+#hint { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); background: var(--paper); color: var(--ink); border-radius: 10px; padding: 9px 14px; font-size: 13.5px; font-weight: 600; display: none; }
+body.picking canvas { cursor: crosshair; }
+
+@media (max-width: 900px) {
+  #places { top: auto; bottom: 96px; left: 12px; right: 12px; width: auto; max-height: 36%; }
+  #title { left: 16px; top: 16px; } #title p { display: none; }
+  #viewSwitch { left: 16px; top: 64px; }
+  #topRight { right: 12px; top: 14px; } .bigbtn span { display: none; }
+  #legend { display: none; }
+  #player { bottom: 12px; right: 12px; gap: 8px; } #since, #restart { display: none; }
+  #drawer { width: 100%; }
+  #hood { right: 12px; left: 12px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) { #drawer { transition: none; } }
+</style>
+</head>
+<body>
+<div id="view"></div>
+<div id="labels"></div>
+
+<div id="title"><h1>Vizag, 7 May 2020</h1><p id="subtitle">The styrene release at LG Polymers, replayed hour by hour</p></div>
+<div id="viewSwitch" role="group" aria-label="View">
+  <button data-v="map" aria-pressed="true">Map</button><button data-v="boxes" aria-pressed="false">Boxes</button>
+</div>
+
+<section id="places" aria-label="Who is exposed">
+  <h2>Who is exposed</h2>
+  <p>Ranked by danger. Click a place to fly to it.</p>
+  <div id="plist"></div>
+  <div class="foot">In 2020 about 3 km around the plant was affected. <button id="cmpLink">Compare with what happened</button></div>
+</section>
+
+<div id="topRight">
+  <button class="bigbtn" id="btnWhat" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="5" cy="4" r="2" fill="#f26b1d" stroke="currentColor" stroke-width="1.6"/><circle cx="11" cy="8" r="2" fill="#f26b1d" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="12" r="2" fill="#f26b1d" stroke="currentColor" stroke-width="1.6"/></svg><span>What if…</span></button>
+  <button class="ghost" id="btnHood" aria-expanded="false">Under the hood</button>
+  <button class="ghost sq" id="btnAbout" aria-label="About this simulation">?</button>
+</div>
+
+<section id="hood" aria-label="Under the hood">
+  <div class="head"><h2>Under the hood</h2><span id="h-backend">connecting</span></div>
+  <div class="speed"><b id="h-speedup">–</b><span id="h-speedup-l">faster than the same code<br>on one CPU core</span></div>
+  <div class="nums">
+    <div><b id="h-air">–</b><span>ms air per step</span></div>
+    <div><b id="h-gas">–</b><span>ms gas per step</span></div>
+    <div><b id="h-grid">–</b><span id="h-grid-l">boxes</span></div>
+  </div>
+  <div class="lab">Gas kernel</div>
+  <div class="dseg" id="kernel" role="radiogroup" aria-label="Gas kernel">
+    <button data-v="1" role="radio" aria-pressed="true">Shared memory</button><button data-v="0" role="radio" aria-pressed="false">Naive</button>
+  </div>
+  <p>Switch live and watch the gas time change. Shared memory reads each value about 1.3 times instead of 7.</p>
+  <div class="lab">Map style</div>
+  <div class="dseg" id="basemap" role="radiogroup" aria-label="Map style">
+    <button data-v="sat" aria-pressed="true">Satellite</button><button data-v="dark" aria-pressed="false">Dark</button><button data-v="plain" aria-pressed="false">Plain</button>
+  </div>
+  <div class="lab">Height exaggeration <span id="o-exag" style="float:right">2×</span></div>
+  <input id="exag" type="range" min="1" max="6" step="0.5" value="2" aria-label="Height exaggeration">
+</section>
+
+<aside id="drawer" aria-label="What if" aria-hidden="true">
+  <div class="head"><h2>What if…</h2><button class="x" id="drawerClose" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2l10 10M12 2L2 12" stroke="#121719" stroke-width="2" stroke-linecap="round"/></svg></button></div>
+  <p>Change the night and watch the cloud respond. The replay of the real weather stops while this is on.</p>
+  <h3>The weather</h3>
+  <div class="presets" id="wxPresets" role="radiogroup" aria-label="Weather preset">
+    <button role="radio" data-p="calm" aria-checked="true"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M15 3a8 8 0 1 0 4 14.5A7 7 0 0 1 15 3z" fill="none" stroke="#121719" stroke-width="1.7"/></svg><b>Calm night</b><span>1 m/s, still air</span></button>
+    <button role="radio" data-p="breezy" aria-checked="false"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M2 8h12a3 3 0 1 0-3-3M2 13h16a3 3 0 1 1-3 3" fill="none" stroke="#121719" stroke-width="1.7" stroke-linecap="round"/></svg><b>Breezy night</b><span>4 m/s, mixing</span></button>
+    <button role="radio" data-p="sunny" aria-checked="false"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="4" fill="none" stroke="#121719" stroke-width="1.7"/><path d="M11 1v3M11 18v3M1 11h3M18 11h3M4 4l2 2M16 16l2 2M4 18l2-2M16 6l2-2" stroke="#121719" stroke-width="1.7" stroke-linecap="round"/></svg><b>Sunny day</b><span>3 m/s, strong mixing</span></button>
+  </div>
+  <div class="windrow">
+    <svg id="dial" viewBox="-56 -56 112 112" role="slider" tabindex="0" aria-label="Wind direction" aria-valuemin="0" aria-valuemax="359"></svg>
+    <div>
+      <div class="from" id="w-from">Wind from the south-west</div>
+      <div class="val" id="w-val">1.0 m/s</div>
+      <input id="wspeed" type="range" min="0.3" max="8" step="0.1" value="1" aria-label="Wind speed">
+      <small>Drag the arrow to change direction</small>
+    </div>
+  </div>
+  <h3>The leak</h3>
+  <div class="leakseg" id="leakPresets" role="radiogroup" aria-label="Leak size">
+    <button role="radio" data-r="10" aria-checked="true"><b>As estimated</b><span>10 kg/s</span></button>
+    <button role="radio" data-r="20" aria-checked="false"><b>Twice as bad</b><span>20 kg/s</span></button>
+    <button role="radio" data-r="50" aria-checked="false"><b>Worst case</b><span>50 kg/s</span></button>
+  </div>
+  <button class="wide" id="moveLeak"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15s5-4.6 5-8.5A5 5 0 0 0 3 6.5C3 10.4 8 15 8 15z" fill="none" stroke="#121719" stroke-width="1.6"/><circle cx="8" cy="6.5" r="1.8" fill="#121719"/></svg>Put the leak somewhere else</button>
+  <label class="fld">Gas<select id="gas"></select></label>
+  <details>
+    <summary>More options</summary>
+    <label class="fld">Atmospheric stability<select id="stab"></select></label>
+    <label class="fld">Air temperature <output id="o-temp">27 °C</output><input id="temp" type="range" min="15" max="42" step="1" value="27"></label>
+    <label class="fld">Release height <output id="o-height">12 m</output><input id="height" type="range" min="0" max="30" step="1" value="12"></label>
+    <label class="fld">Breakdown in air <output id="o-decay">0% per hour</output><input id="decay" type="range" min="0" max="2" step="0.05" value="0"></label>
+  </details>
+  <div class="actions"><button class="go" id="runWhat">Run this night</button><button class="back" id="backReal">Back to 2020</button></div>
+</aside>
+
+<div id="det" aria-live="polite">
+  <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5" fill="none" stroke="#fff" stroke-width="2"/><circle cx="9" cy="9" r="1.6" fill="#fff"/></svg>
+  <div class="card">
+    <div class="bar1"><span>Gas detector</span><button id="detClose" aria-label="Close detector"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="lcd">
+      <div class="r"><span class="ppm" id="d-ppm">0</span><span class="u">ppm</span><span class="g" id="d-gas">STYRENE</span></div>
+      <div class="meter"><i id="d-meter" style="width:0"></i></div>
+      <div class="lv" id="d-lv">Below the discomfort level</div>
+    </div>
+    <div class="where" id="d-where"></div>
+  </div>
+</div>
+
+<div id="legend"></div>
+
+<div id="player">
+  <button id="play" aria-label="Play"><svg id="playIcon" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5v13l11-6.5z" fill="#1b0c02"/></svg></button>
+  <div><div id="clock">02:30</div></div>
+  <div id="since">Leak starts<br>at 02:42</div>
+  <div id="speed" role="group" aria-label="Playback speed">
+    <button data-w="6" aria-pressed="false">Slow</button><button data-w="20" aria-pressed="true">Normal</button><button data-w="60" aria-pressed="false">Fast</button>
+  </div>
+  <button id="restart">Restart</button>
+</div>
+<div id="hint"></div>
+
+<dialog id="about">
+  <div class="in">
+    <button class="close" id="aboutClose" aria-label="Close">✕</button>
+    <h2>About this simulation</h2>
+    <p>A GPU simulation of the styrene vapour release at LG Polymers, R.&nbsp;R.&nbsp;Venkatapuram, Visakhapatnam, on the night of 7 May 2020. The air is computed in 3D with the Lattice Boltzmann method over real terrain and buildings; the heavy vapour is carried by that air and sinks under its own weight.</p>
+    <h3>Compared with what happened</h3>
+    <table id="cmp"></table>
+    <h3>What the colours mean</h3>
+    <p>US EPA 60-minute exposure guidelines (AEGL): discomfort above AEGL-1, serious or lasting harm above AEGL-2, life-threatening above AEGL-3.</p>
+    <h3>Sources and data</h3>
+    <ul id="srcs"></ul>
+  </div>
+</dialog>
+
+<div id="warm"><div><b>Warming up the air</b><p>Letting the wind settle around the hills and buildings before the night begins.</p><div class="pb"><i id="warmBar"></i></div></div></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+const $ = (id) => document.getElementById(id);
+const H = { hello: null, terrain: null, stats: null, ground: null, gw: 0, gh: 0, vol: null, solid: null, wind3: null };
+let exag = 2, view = 'map';
+
+// ================================================================================== scene
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setClearColor(0x070d14);
+$('view').appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 5, 80000);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.47;
+scene.add(new THREE.HemisphereLight(0x9fb8d0, 0x101820, 1.1));
+const moon = new THREE.DirectionalLight(0xcfe0ff, 1.4); moon.position.set(-3000, 5000, 2000); scene.add(moon);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+
+const world = new THREE.Group(); scene.add(world);          // scaled vertically by the exaggeration
+const mapGroup = new THREE.Group(), boxGroup = new THREE.Group();
+world.add(mapGroup, boxGroup); boxGroup.visible = false;
+let terrainMesh = null, bldMesh = null, volMesh = null, windLines = null, beacon = null;
+let Lx = 1, Ly = 1, Hz = 1;
+const groundTex = new THREE.DataTexture(new Uint8Array(4), 2, 2, THREE.RedFormat, THREE.UnsignedByteType);
+groundTex.magFilter = groundTex.minFilter = THREE.LinearFilter; groundTex.unpackAlignment = 1;
+let volTex = null, baseTex = null;
+const U = { aegl: { value: new THREE.Vector3(Math.log10(20), Math.log10(130), Math.log10(1100)) } };
+const COLOR_GLSL = `
+  float lppm(float b) { return b < 0.5/255.0 ? -9.0 : ((b * 255.0 - 1.0) / 254.0) * 5.0 - 1.0; }
+  vec3 hazard(float lp, vec3 ae) {
+    vec3 low = vec3(0.55, 0.85, 0.78), c1 = vec3(0.89, 0.73, 0.11), c2 = vec3(0.93, 0.51, 0.13), c3 = vec3(0.85, 0.20, 0.17);
+    if (lp < ae.x) return mix(low * 0.7, c1, smoothstep(ae.x - 1.3, ae.x, lp));
+    if (lp < ae.y) return mix(c1, c2, smoothstep(ae.x, ae.y, lp));
+    if (lp < ae.z) return mix(c2, c3, smoothstep(ae.y, ae.z, lp));
+    return mix(c3, vec3(1.0, 0.85, 0.85), smoothstep(ae.z, ae.z + 1.0, lp));
+  }`;
+const ppmOfByte = (b) => b ? 10 ** ((b - 1) / 254 * 5 - 1) : 0;
+const byteOfPpm = (p) => p < 0.1 ? 0 : Math.min(255, 1 + Math.floor((Math.log10(p) + 1) / 5 * 254));
+
+function terrainMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { ...U, base: { value: null }, hasBase: { value: 0 }, ground: { value: groundTex }, showGround: { value: 1 },
+      light: { value: new THREE.Vector3(-0.45, 0.75, 0.35).normalize() }, hmax: { value: 1 } },
+    vertexShader: `varying vec2 vUv; varying vec3 vN; varying float vH;
+      void main() { vUv = uv; vN = normalize(normalMatrix * normal); vH = position.y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `uniform sampler2D base; uniform float hasBase; uniform sampler2D ground; uniform float showGround; uniform vec3 light; uniform vec3 aegl; uniform float hmax;
+      varying vec2 vUv; varying vec3 vN; varying float vH; ${COLOR_GLSL}
+      void main() {
+        float shade = 0.35 + 0.75 * max(dot(normalize(vN), normalize((viewMatrix * vec4(light, 0.0)).xyz)), 0.0);
+        vec3 col = mix(vec3(0.10, 0.15, 0.17), vec3(0.30, 0.33, 0.30), clamp(vH / hmax, 0.0, 1.0));
+        if (hasBase > 0.5) col = texture2D(base, vUv).rgb * 0.6;
+        col *= shade;
+        if (showGround > 0.5) {
+          float lp = lppm(texture2D(ground, vUv).r);
+          if (lp > -0.7) {
+            col = mix(col, hazard(lp, aegl), smoothstep(-0.7, 1.2, lp) * 0.85);
+            float w = fwidth(lp) * 1.3;
+            for (int k = 0; k < 3; k++) { if (abs(lp - aegl[k]) < w) col = mix(col, vec3(1.0), 0.65); }
+          }
+        }
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+  });
+}
+const volMaterial = new THREE.ShaderMaterial({
+  glslVersion: THREE.GLSL3, transparent: true, depthWrite: false, depthTest: false, side: THREE.BackSide,
+  uniforms: { ...U, vol: { value: null }, hmap: { value: null }, hmaxm: { value: 1 }, camLocal: { value: new THREE.Vector3() }, size: { value: new THREE.Vector3(1, 1, 1) } },
+  vertexShader: `out vec3 vLocal; void main() { vLocal = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `precision highp float; precision highp sampler3D;
+    uniform sampler3D vol; uniform sampler2D hmap; uniform float hmaxm; uniform vec3 camLocal; uniform vec3 size; uniform vec3 aegl;
+    in vec3 vLocal; out vec4 outColor; ${COLOR_GLSL}
+    vec2 hitBox(vec3 o, vec3 d) { vec3 b = size * 0.5, inv = 1.0 / d; vec3 t0 = (-b - o) * inv, t1 = (b - o) * inv;
+      vec3 tn = min(t0, t1), tf = max(t0, t1); return vec2(max(max(tn.x, tn.y), tn.z), min(min(tf.x, tf.y), tf.z)); }
+    void main() {
+      vec3 d = normalize(vLocal - camLocal); vec2 t = hitBox(camLocal, d); t.x = max(t.x, 0.0); if (t.x >= t.y) discard;
+      const int STEPS = 160; float dt = (t.y - t.x) / float(STEPS); vec4 acc = vec4(0.0);
+      for (int i = 0; i < STEPS; i++) {
+        vec3 p = camLocal + d * (t.x + (float(i) + 0.5) * dt);
+        vec3 tc = vec3(p.x / size.x + 0.5, -p.z / size.z + 0.5, p.y / size.y + 0.5);
+        if (p.y < texture(hmap, tc.xy).r * hmaxm - size.y * 0.5) break;
+        float lp = lppm(texture(vol, tc).r);
+        if (lp > -0.5) {
+          float a = clamp((lp - 0.3) / 3.2, 0.0, 1.0); a = a * a * a * 0.16;
+          vec3 c = hazard(lp, aegl) * (1.0 + 0.6 * smoothstep(aegl.y, aegl.z, lp));
+          acc.rgb += (1.0 - acc.a) * a * c; acc.a += (1.0 - acc.a) * a; if (acc.a > 0.96) break;
+        }
+      }
+      if (acc.a < 0.01) discard; outColor = vec4(acc.rgb / max(acc.a, 1e-3), acc.a);
+    }`,
+});
+
+// ------------------------------------------------------------------ coordinates
+const T = () => H.terrain;
+function terrainAt(x, y) { const t = T(); if (!t) return 0; const xi = Math.max(0, Math.min(t.nx - 1, Math.round(x))), yi = Math.max(0, Math.min(t.ny - 1, Math.round(y))); return t.h[yi * t.nx + xi] / 10; }
+const gx = (x) => (x + 0.5) * H.hello.dx - Lx / 2;
+const gz = (y) => -((y + 0.5) * H.hello.dx - Ly / 2);
+const leakXY = () => { const s = H.stats?.state; return s ? [s.leak_x, s.leak_y] : [H.hello.plant.x, H.hello.plant.y]; };
+
+// ------------------------------------------------------------------ build the map view
+function buildSite() {
+  const h = H.hello, t = T();
+  Lx = h.nx * h.dx; Ly = h.ny * h.dx; Hz = h.nz * h.dx;
+  const seg = Math.min(t.nx - 1, 360);
+  const geo = new THREE.PlaneGeometry(Lx, Ly, seg, seg); geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, uv = geo.attributes.uv; let hmax = 1;
+  for (let k = 0; k < pos.count; k++) { const hh = terrainAt(uv.getX(k) * (t.nx - 1), uv.getY(k) * (t.ny - 1)); pos.setY(k, hh); hmax = Math.max(hmax, hh); }
+  geo.computeVertexNormals();
+  const mat = terrainMaterial(); mat.uniforms.hmax.value = hmax;
+  terrainMesh = new THREE.Mesh(geo, mat); mapGroup.add(terrainMesh);
+  loadBasemap('sat');
+  const geos = [];
+  for (const b of h.polygons) {
+    if (b.p.length < 3) continue;
+    const g = new THREE.ExtrudeGeometry(new THREE.Shape(b.p.map(([x, y]) => new THREE.Vector2(x - Lx / 2, y - Ly / 2))), { depth: Math.max(2, b.h), bevelEnabled: false });
+    g.rotateX(-Math.PI / 2);
+    const cx = b.p.reduce((s, q) => s + q[0], 0) / b.p.length / h.dx, cy = b.p.reduce((s, q) => s + q[1], 0) / b.p.length / h.dx;
+    g.translate(0, terrainAt(cx, cy) - 0.5, 0); geos.push(g);
+  }
+  if (geos.length) { bldMesh = new THREE.Mesh(mergeGeometries(geos), new THREE.MeshStandardMaterial({ color: 0x5b7182, roughness: 0.85, emissive: 0x0b151d })); mapGroup.add(bldMesh); }
+  volMesh = new THREE.Mesh(new THREE.BoxGeometry(Lx, Hz, Ly), volMaterial); volMesh.position.y = Hz / 2; volMesh.renderOrder = 10; mapGroup.add(volMesh);
+  volMaterial.uniforms.size.value.set(Lx, Hz, Ly);
+  const hm = new Uint8Array(t.nx * t.ny); let hmx = 1;
+  for (let k = 0; k < hm.length; k++) hmx = Math.max(hmx, t.h[k] / 10 + (t.b ? t.b[k] : 0));
+  for (let k = 0; k < hm.length; k++) hm[k] = Math.round((t.h[k] / 10 + (t.b ? t.b[k] : 0)) / hmx * 255);
+  const hmt = new THREE.DataTexture(hm, t.nx, t.ny, THREE.RedFormat, THREE.UnsignedByteType); hmt.minFilter = hmt.magFilter = THREE.LinearFilter; hmt.unpackAlignment = 1; hmt.needsUpdate = true;
+  volMaterial.uniforms.hmap.value = hmt; volMaterial.uniforms.hmaxm.value = hmx;
+  beacon = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 26, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0xf26b1d, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+  world.add(beacon);
+  const NP = innerWidth < 700 ? 900 : 2200, lp = new Float32Array(NP * 6);
+  windLines = new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(lp, 3)), new THREE.LineBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.4 }));
+  windLines.userData.p = Array.from({ length: NP }, () => spawn({})); windLines.frustumCulled = false;
+  windLines.userData.p.forEach((p, i) => { const h0 = terrainAt(p.x, p.y) + 14; lp.set([gx(p.x), h0, gz(p.y), gx(p.x), h0, gz(p.y)], i * 6); });
+  mapGroup.add(windLines);
+  const [px, py] = [h.plant.x, h.plant.y];
+  controls.target.set(gx(px), 0, gz(py));
+  camera.position.set(gx(px) - Lx * 0.12, Math.max(Lx, Ly) * 0.5, gz(py) + Ly * 0.66);
+  controls.update();
+  setExag(exag); buildLabels(); setLegend();
+  if (H.solid) buildBoxes();
+}
+function setExag(v) { exag = v; world.scale.y = v; $('o-exag').textContent = `${v}×`; }
+
+const TILES = { sat: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`, dark: (z, x, y) => `https://a.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png` };
+const lon2t = (lon, z) => (lon + 180) / 360 * 2 ** z;
+const lat2t = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 2 ** z; };
+async function loadBasemap(kind) {
+  const m = terrainMesh.material.uniforms, bb = H.hello.bbox;
+  if (kind === 'plain' || !bb) { m.hasBase.value = 0; return; }
+  const z = Lx > 7000 ? 14 : 15, x0 = lon2t(bb.w, z), x1 = lon2t(bb.e, z), y0 = lat2t(bb.n, z), y1 = lat2t(bb.s, z), TS = 256;
+  const cv = document.createElement('canvas'); cv.width = Math.ceil((x1 - x0) * TS); cv.height = Math.ceil((y1 - y0) * TS);
+  const ctx = cv.getContext('2d'), jobs = [];
+  for (let ty = Math.floor(y0); ty <= Math.floor(y1); ty++) for (let tx = Math.floor(x0); tx <= Math.floor(x1); tx++)
+    jobs.push(new Promise((res) => { const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => { ctx.drawImage(img, (tx - x0) * TS, (ty - y0) * TS, TS, TS); res(1); }; img.onerror = () => res(0); img.src = TILES[kind](z, tx, ty); }));
+  if (!(await Promise.all(jobs)).some(Boolean)) { m.hasBase.value = 0; return; }
+  if (baseTex) baseTex.dispose();
+  baseTex = new THREE.CanvasTexture(cv); baseTex.colorSpace = THREE.SRGBColorSpace; baseTex.anisotropy = 4; m.base.value = baseTex; m.hasBase.value = 1;
+}
+
+// wind particles (map view)
+let windField = null;
+function spawn(p) { p.x = Math.random() * H.hello.nx; p.y = Math.random() * H.hello.ny; p.age = 0; p.life = 40 + Math.random() * 90; return p; }
+function windAt(x, y) { if (!windField) return [0, 0]; const f = H.hello.wind_factor, a = Math.min(windField.w - 1, Math.max(0, Math.floor(x / f))), b = Math.min(windField.h - 1, Math.max(0, Math.floor(y / f))), k = (b * windField.w + a) * 2; return [windField.d[k] / 10, windField.d[k + 1] / 10]; }
+function stepWind() {
+  if (!windLines || view !== 'map') return;
+  const arr = windLines.geometry.attributes.position.array, sc = 1.8 / H.hello.dx;
+  windLines.userData.p.forEach((p, i) => {
+    const [u, v] = windAt(p.x, p.y); let ax = p.x, ay = p.y; p.x += u * sc; p.y += v * sc;
+    if (++p.age > p.life || p.x < 0 || p.y < 0 || p.x >= H.hello.nx || p.y >= H.hello.ny) { spawn(p); ax = p.x; ay = p.y; }
+    arr.set([gx(ax), terrainAt(ax, ay) + 14, gz(ay), gx(p.x), terrainAt(p.x, p.y) + 14, gz(p.y)], i * 6);
+  });
+  windLines.geometry.attributes.position.needsUpdate = true;
+}
+
+// ================================================================================== Boxes view
+// The simulation grid drawn as boxes. Each box here is one block of (f x f) simulation boxes
+// horizontally and one box vertically, straight from the GPU's own solid / gas / wind arrays.
+const BOX_VS = `
+  attribute float edge; varying vec3 vC; varying vec3 vN; varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    #ifdef USE_INSTANCING_COLOR
+      vC = instanceColor;
+    #else
+      vC = vec3(1.0);
+    #endif
+    vN = normalize(normalMatrix * mat3(instanceMatrix) * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  }`;
+const solidMat = new THREE.ShaderMaterial({
+  uniforms: { edges: { value: 1 }, light: { value: new THREE.Vector3(-0.4, 0.85, 0.35).normalize() } },
+  vertexShader: BOX_VS,
+  fragmentShader: `uniform float edges; uniform vec3 light; varying vec3 vC; varying vec3 vN; varying vec2 vUv;
+    void main() {
+      float d = max(dot(normalize(vN), normalize((viewMatrix * vec4(light, 0.0)).xyz)), 0.0);
+      vec3 c = vC * (0.55 + 0.65 * d);
+      float e = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      if (edges > 0.5 && e < 0.035) c *= 0.45;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+});
+const gasMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { edges: { value: 1 }, light: { value: new THREE.Vector3(-0.4, 0.85, 0.35).normalize() } },
+  vertexShader: BOX_VS,
+  fragmentShader: `uniform float edges; uniform vec3 light; varying vec3 vC; varying vec3 vN; varying vec2 vUv;
+    void main() {
+      float d = max(dot(normalize(vN), normalize((viewMatrix * vec4(light, 0.0)).xyz)), 0.0);
+      vec3 c = vC * (0.75 + 0.45 * d);
+      float e = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
+      float a = 0.58;
+      if (edges > 0.5 && e < 0.04) { c *= 0.6; a = 0.85; }
+      gl_FragColor = vec4(c, a);
+    }`,
+});
+const airMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false,
+  uniforms: { time: { value: 0 } },
+  vertexShader: `attribute float arc; varying float vArc; void main() { vArc = arc; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `uniform float time; varying float vArc;
+    void main() {
+      float f = fract(vArc / 140.0 - time * 0.45);
+      float a = smoothstep(0.0, 0.08, f) * (1.0 - smoothstep(0.3, 0.42, f));
+      gl_FragColor = vec4(0.75, 0.9, 1.0, 0.15 + 0.85 * a);
+    }`,
+});
+// thick dashed lines whose dashes move along the flow (the dash offset is animated every frame)
+const airFat = new LineMaterial({ color: 0xbfe6ff, linewidth: 2.4, dashed: true, dashSize: 34, gapSize: 26, transparent: true, opacity: 0.95, worldUnits: false });
+airFat.resolution.set(innerWidth, innerHeight);
+addEventListener('resize', () => airFat.resolution.set(innerWidth, innerHeight));
+let solidMesh = null, gasMesh = null, airLines = null, hlBox = null;
+const GAS_MAX = 60000;
+const cTmp = new THREE.Color(), mTmp = new THREE.Matrix4();
+
+function buildBoxes() {
+  if (!H.hello || !T() || !H.solid) return;
+  const S = H.solid, f = H.hello.vol_factor, dx = H.hello.dx, wx = f * dx, wz = dx;
+  const { vx, vy, vz, d } = S;
+  const at = (a, b, c) => (a < 0 || b < 0 || a >= vx || b >= vy || c < 0) ? 0 : (c >= vz ? 0 : d[(c * vy + b) * vx + a]);
+  const list = [];
+  let zTop = 1;
+  for (let c = 0; c < vz; c++) for (let b = 0; b < vy; b++) for (let a = 0; a < vx; a++) {
+    const s = d[(c * vy + b) * vx + a]; if (!s) continue;
+    const exposed = !at(a, b, c + 1) || !at(a - 1, b, c) || !at(a + 1, b, c) || !at(a, b - 1, c) || !at(a, b + 1, c);
+    if (exposed) { list.push(a, b, c, s); if (s === 1) zTop = Math.max(zTop, c); }
+  }
+  if (solidMesh) { boxGroup.remove(solidMesh); solidMesh.geometry.dispose(); }
+  const n = list.length / 4;
+  solidMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(wx, wz, wx), solidMat, n);
+  const g1 = new THREE.Color('#3b5047'), g2 = new THREE.Color('#7f9a83'), bc = new THREE.Color('#8ea5b4');
+  for (let k = 0; k < n; k++) {
+    const a = list[4 * k], b = list[4 * k + 1], c = list[4 * k + 2], s = list[4 * k + 3];
+    mTmp.makeTranslation((a + 0.5) * wx - Lx / 2, (c + 0.5) * wz, -((b + 0.5) * wx - Ly / 2));
+    solidMesh.setMatrixAt(k, mTmp);
+    if (s === 2) cTmp.copy(bc); else cTmp.copy(g1).lerp(g2, Math.min(1, c / Math.max(zTop, 1)));
+    solidMesh.setColorAt(k, cTmp);
+  }
+  solidMesh.instanceMatrix.needsUpdate = true; solidMesh.instanceColor.needsUpdate = true;
+  boxGroup.add(solidMesh);
+  if (!gasMesh) {
+    gasMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(wx * 0.98, wz * 0.98, wx * 0.98), gasMat, GAS_MAX);
+    gasMesh.count = 0; gasMesh.renderOrder = 5; gasMesh.frustumCulled = false;
+    gasMesh.setColorAt(0, cTmp.set('#ffffff'));
+    boxGroup.add(gasMesh);
+  }
+  hlBox = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(wx * 1.04, wz * 1.04, wx * 1.04)), new THREE.LineBasicMaterial({ color: 0xffffff }));
+  hlBox.visible = false; boxGroup.add(hlBox);
+  if (H.vol) updateGasBoxes();
+  if (H.wind3) traceAir();
+}
+
+let hlPos = null;
+function updateGasBoxes() {
+  if (!gasMesh || !H.vol || view !== 'boxes') return;
+  const { vx, vy, vz, d } = H.vol, f = H.hello.vol_factor, dx = H.hello.dx, wx = f * dx;
+  const g = H.hello.gases[H.stats?.state.gas || 'styrene'];
+  const t1 = byteOfPpm(g.aegl1), b1 = byteOfPpm(g.aegl1), b2 = byteOfPpm(g.aegl2), b3 = byteOfPpm(g.aegl3);
+  const cLow = new THREE.Color('#9fd8c4'), c1 = new THREE.Color('#f5d547'), c2 = new THREE.Color('#ff8a2a'), c3 = new THREE.Color('#ff3b30');
+  const [lx, ly] = leakXY(); const la = Math.floor(lx / f), lb = Math.floor(ly / f);
+  let n = 0, best = -1, bestScore = -1;
+  for (let c = 0; c < vz && n < GAS_MAX; c++) for (let b = 0; b < vy && n < GAS_MAX; b++) for (let a = 0; a < vx && n < GAS_MAX; a++) {
+    const v = d[(c * vy + b) * vx + a]; if (v < t1) continue;
+    if (H.solid && H.solid.d[(c * vy + b) * vx + a]) continue;
+    mTmp.makeTranslation((a + 0.5) * wx - Lx / 2, (c + 0.5) * dx, -((b + 0.5) * wx - Ly / 2));
+    gasMesh.setMatrixAt(n, mTmp);
+    gasMesh.setColorAt(n, v >= b3 ? c3 : v >= b2 ? c2 : v >= b1 ? c1 : cLow);
+    // the box we point at: a dense box a little downwind of the leak, near the ground
+    const dist = Math.hypot(a - la, b - lb);
+    if (v >= b1 && dist >= 2 && dist <= 6) { const score = v - c * 8 - Math.abs(dist - 3) * 6; if (score > bestScore) { bestScore = score; best = n; hlPos = [a, b, c]; } }
+    n++;
+  }
+  gasMesh.count = n; gasMesh.instanceMatrix.needsUpdate = true; if (gasMesh.instanceColor) gasMesh.instanceColor.needsUpdate = true;
+  if (best >= 0 && hlBox) { hlBox.visible = true; hlBox.position.set((hlPos[0] + 0.5) * wx - Lx / 2, (hlPos[2] + 0.5) * dx, -((hlPos[1] + 0.5) * wx - Ly / 2)); }
+  else if (hlBox) { hlBox.visible = false; hlPos = null; }
+}
+
+// Air streams: traced through the GPU's 3D wind field (Lattice Boltzmann velocities)
+function traceAir() {
+  if (!H.wind3 || !H.solid || !H.hello) return;
+  const W = H.wind3, f = H.hello.vol_factor, dx = H.hello.dx, cw = f * dx, ch = 2 * dx;
+  const { vx, vy, vz, d } = W, plane = vx * vy * vz;
+  const S = H.solid;
+  const sample = (xm, ym, zm) => {                 // trilinear, metres -> m/s
+    const fx = xm / cw - 0.5, fy = ym / cw - 0.5, fz = zm / ch - 0.5;
+    const x0 = Math.max(0, Math.min(vx - 2, Math.floor(fx))), y0 = Math.max(0, Math.min(vy - 2, Math.floor(fy))), z0 = Math.max(0, Math.min(vz - 2, Math.floor(fz)));
+    const tx = Math.min(1, Math.max(0, fx - x0)), ty = Math.min(1, Math.max(0, fy - y0)), tz = Math.min(1, Math.max(0, fz - z0));
+    const out = [0, 0, 0];
+    for (let k = 0; k < 3; k++) {
+      let s = 0;
+      for (let cc = 0; cc < 2; cc++) for (let bb = 0; bb < 2; bb++) for (let aa = 0; aa < 2; aa++) {
+        const w = (aa ? tx : 1 - tx) * (bb ? ty : 1 - ty) * (cc ? tz : 1 - tz);
+        s += w * d[k * plane + ((z0 + cc) * vy + (y0 + bb)) * vx + (x0 + aa)];
+      }
+      out[k] = s / 10;
+    }
+    return out;
+  };
+  const solidAt = (xm, ym, zm) => {
+    const a = Math.floor(xm / cw), b = Math.floor(ym / cw), c = Math.floor(zm / dx);
+    if (a < 0 || b < 0 || a >= S.vx || b >= S.vy || c < 0) return true;
+    if (c >= S.vz) return false;
+    return S.d[(c * S.vy + b) * S.vx + a] > 0;
+  };
+  const groundZ = (xm, ym) => { const a = Math.floor(xm / cw), b = Math.floor(ym / cw); let c = 0; while (c < S.vz && S.d[(c * S.vy + b) * S.vx + a]) c++; return c * dx; };
+  // mean wind near the ground decides where streams start (the upwind side)
+  let mu = 0, mv = 0, cnt = 0;
+  for (let k = 0; k < vx * vy; k += 7) { mu += d[k + vx * vy]; mv += d[plane + k + vx * vy]; cnt++; }
+  mu /= cnt * 10; mv /= cnt * 10;
+  const sp = Math.hypot(mu, mv) || 1, ux = mu / sp, uy = mv / sp, px = -uy, py = ux;
+  const L = Math.min(Lx, Ly), cx = Lx / 2, cy = Ly / 2;
+  const seeds = [];
+  for (let k = 0; k < 16; k++) {
+    const s = (k / 15 - 0.5) * 0.92 * L;
+    const sx = cx - ux * 0.46 * L + px * s, sy = cy - uy * 0.46 * L + py * s;
+    if (sx < 0 || sy < 0 || sx > Lx || sy > Ly) continue;
+    seeds.push([sx, sy, 14], [sx, sy, 40]);
+  }
+  const [lx, ly] = leakXY();
+  for (let k = 0; k < 6; k++) seeds.push([(lx + 0.5) * dx + (k - 2.5) * cw * 1.5 * px - ux * cw * 3, (ly + 0.5) * dx + (k - 2.5) * cw * 1.5 * py - uy * cw * 3, 12]);
+  const pos = [], arc = [];
+  const step = cw * 0.45;
+  for (const sd of seeds) {
+    let [x, y, zr] = sd; let z = groundZ(x, y) + zr; if (solidAt(x, y, z)) continue;
+    let s = 0, prev = [x, y, z];
+    for (let it = 0; it < 420; it++) {
+      const v1 = sample(x, y, z), m1 = Math.hypot(...v1); if (m1 < 0.05) break;
+      const hx = x + v1[0] / m1 * step * 0.5, hy = y + v1[1] / m1 * step * 0.5, hz = z + v1[2] / m1 * step * 0.5;
+      const v2 = sample(hx, hy, hz), m2 = Math.hypot(...v2); if (m2 < 0.05) break;
+      x += v2[0] / m2 * step; y += v2[1] / m2 * step; z += v2[2] / m2 * step;
+      if (x < 0 || y < 0 || x > Lx || y > Ly || z > Hz || solidAt(x, y, z)) break;
+      pos.push(prev[0] - Lx / 2, prev[2], -(prev[1] - Ly / 2), x - Lx / 2, z, -(y - Ly / 2));
+      arc.push(s, s + step); s += step; prev = [x, y, z];
+    }
+  }
+  if (airLines) { boxGroup.remove(airLines); airLines.geometry.dispose(); }
+  const g = new LineSegmentsGeometry(); g.setPositions(pos);
+  airLines = new LineSegments2(g, airFat); airLines.computeLineDistances(); airLines.renderOrder = 8; airLines.frustumCulled = false;
+  boxGroup.add(airLines);
+  H.airLabelAt = [(cx - ux * 0.4 * L) / dx, (cy - uy * 0.4 * L) / dx];
+}
+
+function setView(v) {
+  view = v;
+  document.querySelectorAll('#viewSwitch button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+  mapGroup.visible = v === 'map'; boxGroup.visible = v === 'boxes';
+  $('subtitle').textContent = v === 'map' ? 'The styrene release at LG Polymers, replayed hour by hour' : 'How the simulation sees the night: boxes, air and gas';
+  send({ t: 'view', v });
+  if (v === 'boxes') { if (!solidMesh) buildBoxes(); updateGasBoxes(); }
+  setLegend(); closeDetector();
+}
+
+// ================================================================================== labels
+let labels = [];
+function addLabel(cls, html, x, y, lift, mode) { const el = document.createElement('div'); el.className = cls; el.innerHTML = html; $('labels').appendChild(el); const L = { el, x, y, lift, mode }; labels.push(L); return L; }
+function buildLabels() {
+  $('labels').innerHTML = ''; labels = [];
+  H.tankL = addLabel('tag', '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="2" width="8" height="8" transform="rotate(45 6 6)" fill="#f26b1d"/></svg>Tank M6', H.hello.plant.x, H.hello.plant.y, 34, 'both');
+  H.airL = addLabel('tag air', 'Wind from the south-west', 0, 0, 60, 'boxes');
+  H.boxL = addLabel('tag box', '<b>One box</b><span></span>', 0, 0, 0, 'boxes');
+  H.placeL = (H.hello.places_xy || []).map((p, i) => addLabel('pill dim', '<i></i><span></span>', p.x, p.y, 16, 'both'));
+}
+const v3 = new THREE.Vector3();
+function updateLabels() {
+  if (!H.hello || !H.tankL) return;
+  const [lx, ly] = leakXY(); H.tankL.x = lx; H.tankL.y = ly;
+  if (H.airLabelAt) { H.airL.x = H.airLabelAt[0]; H.airL.y = H.airLabelAt[1]; }
+  for (const L of labels) {
+    let show = L.mode === 'both' || L.mode === view;
+    if (L === H.airL && !H.airLabelAt) show = false;
+    if (L === H.boxL) {
+      show = view === 'boxes' && hlPos && hlBox?.visible;
+      if (show) { const f = H.hello.vol_factor, dx = H.hello.dx; v3.set((hlPos[0] + 1) * f * dx - Lx / 2, (hlPos[2] + 1) * dx * exag, -((hlPos[1] + 0.5) * f * dx - Ly / 2)); }
+    } else v3.set(gx(L.x), (terrainAt(L.x, L.y) + L.lift) * exag, gz(L.y));
+    if (show) { v3.project(camera); show = v3.z < 1 && Math.abs(v3.x) < 1.05 && Math.abs(v3.y) < 1.05; }
+    L.el.style.display = show ? 'flex' : 'none';
+    if (show) { L.el.style.left = ((v3.x + 1) / 2 * innerWidth) + 'px'; L.el.style.top = ((1 - v3.y) / 2 * innerHeight) + 'px'; }
+  }
+  if (det.open) positionDetector();
+}
+
+// ================================================================================== render loop
+const clock3 = new THREE.Clock();
+function frame(t) {
+  requestAnimationFrame(frame);
+  controls.update();
+  if (fly) stepFly(t);
+  if (volMesh && view === 'map') { volMesh.updateMatrixWorld(); volMaterial.uniforms.camLocal.value.copy(volMesh.worldToLocal(camera.position.clone())); }
+  if (beacon) { const [lx, ly] = leakXY(); beacon.position.set(gx(lx), terrainAt(lx, ly) + 13, gz(ly)); const s = 1 + 0.25 * Math.sin(t / 300); beacon.scale.set(s, 1, s); }
+  const tnow = clock3.getElapsedTime(); airMat.uniforms.time.value = tnow; airFat.dashOffset = -tnow * 40;
+  stepWind();
+  renderer.render(scene, camera);
+  updateLabels();
+}
+requestAnimationFrame(frame);
+
+// ================================================================================== networking
+let ws;
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  ws.binaryType = 'arraybuffer';
+  ws.onclose = () => setTimeout(connect, 1500);
+  ws.onmessage = (ev) => {
+    if (typeof ev.data === 'string') return onJson(JSON.parse(ev.data));
+    const type = new Uint8Array(ev.data, 0, 1)[0], three = type === 2 || type === 6 || type === 7;
+    const dims = new Uint16Array(ev.data.slice(1, three ? 7 : 5)), body = ev.data.slice(three ? 7 : 5);
+    if (type === 5) H.bld = new Uint8Array(body);
+    else if (type === 4) { H.terrain = { ny: dims[0], nx: dims[1], h: new Uint16Array(body), b: H.bld }; if (H.hello && !terrainMesh) buildSite(); }
+    else if (type === 1) { H.ground = new Uint8Array(body); H.gh = dims[0]; H.gw = dims[1]; groundTex.image = { data: H.ground, width: H.gw, height: H.gh }; groundTex.needsUpdate = true; send({ t: 'ack' }); if (det.open) readDetector(); }
+    else if (type === 2) {
+      const [vz, vy, vx] = dims, data = new Uint8Array(body);
+      H.vol = { vx, vy, vz, d: data };
+      if (!volTex || volTex.image.width !== vx || volTex.image.depth !== vz) {
+        volTex = new THREE.Data3DTexture(data, vx, vy, vz); volTex.format = THREE.RedFormat; volTex.type = THREE.UnsignedByteType;
+        volTex.minFilter = volTex.magFilter = THREE.LinearFilter; volTex.unpackAlignment = 1; volMaterial.uniforms.vol.value = volTex;
+      } else volTex.image.data = data;
+      volTex.needsUpdate = true; updateGasBoxes();
+    } else if (type === 3) windField = { h: dims[0], w: dims[1], d: new Int8Array(body) };
+    else if (type === 6) { const [vz, vy, vx] = dims; H.solid = { vx, vy, vz, d: new Uint8Array(body) }; if (terrainMesh) buildBoxes(); }
+    else if (type === 7) { const [vz, vy, vx] = dims; H.wind3 = { vx, vy, vz, d: new Int8Array(body) }; traceAir(); }
+  };
+}
+const send = (m) => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
+
+function onJson(m) {
+  if (m.t === 'hello') { H.hello = m; fillStatic(); if (H.terrain && !terrainMesh) buildSite(); showWarm(m.status); if (view === 'boxes') send({ t: 'view', v: 'boxes' }); }
+  else if (m.t === 'status') showWarm(m.status);
+  else if (m.t === 'stats') { H.stats = m; showWarm(m.status); updateStats(m); }
+}
+function showWarm(s) { const w = $('warm'); if (!s || s.phase === 'running') { w.style.opacity = 0; return; } w.style.opacity = 1; $('warmBar').style.width = `${Math.round(s.progress * 100)}%`; }
+
+// ================================================================================== panels
+const DIRS = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+const SHORT = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const bearing = (dxE, dyN) => Math.round(((Math.atan2(dxE, dyN) * 180 / Math.PI + 360) % 360) / 45) % 8;
+const fmt = (v) => v >= 10000 ? Math.round(v / 1000) + 'k' : v >= 1000 ? Math.round(v).toLocaleString('en-IN') : v >= 10 ? Math.round(v) : v >= 1 ? v.toFixed(1) : v > 0.1 ? v.toFixed(2) : '0';
+const LEVEL = ['Below the discomfort level', 'Discomfort', 'Serious harm', 'Life-threatening'];
+
+function fillStatic() {
+  const h = H.hello;
+  $('gas').innerHTML = Object.entries(h.gases).map(([k, g]) => `<option value="${k}">${g.name}${k === 'styrene' ? ' (as in 2020)' : ''}</option>`).join('');
+  $('stab').innerHTML = `<option value="auto">Automatic, from the weather</option>` + Object.entries(h.stability).map(([k, l]) => `<option value="${k}">${k}: ${l}</option>`).join('');
+  $('h-backend').textContent = h.backend === 'cuda' ? 'running on the GPU (CUDA)' : 'running on the CPU';
+  $('h-grid').textContent = `${(h.nx * h.ny * h.nz / 1e6).toFixed(1)} M`; $('h-grid-l').textContent = `boxes of ${h.dx} m`;
+  const f = h.facts, src = h.facts?.sources || [];
+  $('srcs').innerHTML = src.map(([t, u]) => `<li><a href="${u}" target="_blank" rel="noopener">${t}</a></li>`).join('') +
+    `<li>Terrain: ${h.data_sources?.terrain || 'synthetic'}. Buildings: ${h.data_sources?.buildings || 'synthetic'}. Weather: ${h.data_sources?.weather || 'assumed'}.</li>`;
+  if (h.source === 'synthetic') $('subtitle').textContent = 'Test valley (run the site data step for the real Vizag terrain)';
+}
+
+function updateStats(s) {
+  const st = s.state, g = H.hello.gases[st.gas];
+  U.aegl.value.set(Math.log10(g.aegl1), Math.log10(g.aegl2), Math.log10(g.aegl3));
+  // play bar
+  $('clock').textContent = s.clock;
+  $('since').innerHTML = s.since_min == null ? `Leak starts<br>at ${H.hello.leak_start}` : `Leak running<br>${Math.floor(s.since_min / 60) ? Math.floor(s.since_min / 60) + ' h ' : ''}${Math.floor(s.since_min % 60)} min`;
+  $('play').setAttribute('aria-label', st.paused ? 'Play' : 'Pause');
+  $('playIcon').innerHTML = st.paused ? '<path d="M6 3.5v13l11-6.5z" fill="#1b0c02"/>' : '<rect x="4.5" y="3.5" width="4" height="13" rx="1.4" fill="#1b0c02"/><rect x="11.5" y="3.5" width="4" height="13" rx="1.4" fill="#1b0c02"/>';
+  document.querySelectorAll('#speed button').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.w === st.warp)));
+  // places
+  renderPlaces(s);
+  // hood
+  $('h-air').textContent = s.ms_air ? s.ms_air.toFixed(s.ms_air < 10 ? 2 : 1) : '–';
+  $('h-gas').textContent = s.ms_gas ? s.ms_gas.toFixed(s.ms_gas < 10 ? 2 : 1) : '–';
+  const b = H.hello.bench;
+  if (b && b.cpu_air_ms && s.ms_air) $('h-speedup').textContent = `${Math.round((b.cpu_air_ms + (b.cpu_gas_ms || 0)) / (s.ms_air + s.ms_gas))}×`;
+  else { $('h-speedup').textContent = s.speed_x ? `${s.speed_x >= 10 ? Math.round(s.speed_x) : s.speed_x.toFixed(1)}×` : '–'; $('h-speedup-l').innerHTML = 'faster than real time<br>(run the benchmark for the CPU comparison)'; }
+  document.querySelectorAll('#kernel button').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.v === st.kernel)));
+  // about: comparison table
+  const f = H.hello.facts, a1 = s.zones.find((z) => z.key === 'aegl1');
+  const rep = s.places.filter((p) => p.reported), hit = rep.filter((p) => p.level >= 1).length;
+  $('cmp').innerHTML = f ? `<tr><th></th><th>2020</th><th>This simulation, now</th></tr>
+    <tr><td>Affected distance</td><td>about ${f.affected_radius_km} km</td><td>${(a1.reach_m / 1000).toFixed(1)} km above discomfort</td></tr>
+    <tr><td>Places named in reports reached</td><td>${rep.length}</td><td>${hit} of ${rep.length}</td></tr>
+    <tr><td>Styrene released</td><td>about ${f.est_release_tonnes} t in total</td><td>${s.released_t.toFixed(1)} t so far</td></tr>
+    <tr><td>Cloud depth</td><td>${f.observed_cloud_height_m} m</td><td>${H.hello.dx} m boxes cannot resolve it</td></tr>
+    <tr><td>Deaths, hospitalised</td><td>${f.deaths}, ${f.hospitalised}</td><td>not modelled</td></tr>` : '<tr><td>No historical record for this test site.</td></tr>';
+  if (!drawerOpen) syncDrawer(st, s.weather);
+}
+
+function renderPlaces(s) {
+  const [lx, ly] = leakXY(), dx = H.hello.dx, xy = H.hello.places_xy || [];
+  const rows = s.places.map((p, i) => ({ ...p, i, x: xy[i]?.x, y: xy[i]?.y }));
+  rows.forEach((p) => { const b = bearing(p.x - lx, p.y - ly); p.dirS = SHORT[b]; p.dirL = DIRS[b]; p.km = Math.hypot(p.x - lx, p.y - ly) * dx / 1000; });
+  rows.sort((a, b) => b.level - a.level || b.peak - a.peak || a.km - b.km);
+  const reached = rows.filter((p) => p.level > 0), rest = rows.filter((p) => p.level === 0);
+  let html = reached.length ? '' : `<div class="empty">${s.since_min == null ? (s.state.paused ? 'Nobody is exposed yet. Press play to start the night.' : `The leak has not started yet. It begins at ${H.hello.leak_start}.`) : 'No place has reached the discomfort level yet.'}</div>`;
+  for (const p of reached) {
+    const g = [1, 2, 3].map((k) => `<span class="${p.level >= k ? 'on' + k : ''}"></span>`).join('');
+    html += `<button class="pc" data-i="${p.i}"><div class="row1"><span class="nm">${p.name}</span><span class="dist">${p.km.toFixed(1)} km ${p.dirS}</span></div>
+      <div class="gauge">${g}</div><div class="row2"><span><b class="lv${p.level}">${LEVEL[p.level]}</b>, peak ${fmt(p.peak)} ppm</span><span>${p.first ? 'since ' + p.first : ''}</span></div>
+      ${p.reported ? '<div class="rep">Named in the 2020 reports</div>' : ''}</button>`;
+  }
+  for (const p of rest) html += `<button class="pr" data-i="${p.i}"><span class="nm">${p.name}</span><span class="dist">${p.km.toFixed(1)} km ${p.dirS}, ${p.now >= 1 ? fmt(p.now) + ' ppm' : 'not reached'}</span></button>`;
+  $('plist').innerHTML = html;
+  // map labels
+  (H.placeL || []).forEach((L, i) => { const p = s.places[i]; L.el.className = 'pill' + (p.level ? ' l' + p.level : ' dim'); L.el.querySelector('span').textContent = p.name; });
+  if (H.boxL) H.boxL.el.querySelector('span').textContent = H.hello.vol_factor > 1
+    ? `= ${H.hello.vol_factor} × ${H.hello.vol_factor} simulation boxes of ${dx} m, each run by its own GPU thread` : `${dx} m across, run by one GPU thread`;
+  if (H.boxL) H.boxL.el.querySelector('b').textContent = H.hello.vol_factor > 1 ? 'One box here' : 'One box';
+}
+$('plist').addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (!b) return; const p = H.hello.places_xy[+b.dataset.i]; flyTo(p.x, p.y); });
+
+// ------------------------------------------------------------------ fly-to
+let fly = null;
+function flyTo(x, y) {
+  const to = new THREE.Vector3(gx(x), terrainAt(x, y) * exag, gz(y)), off = camera.position.clone().sub(controls.target);
+  const dist = Math.min(off.length(), Math.max(Lx, Ly) * 0.35); off.setLength(dist);
+  fly = { t0: performance.now(), dur: 900, fromT: controls.target.clone(), toT: to, fromP: camera.position.clone(), toP: to.clone().add(off) };
+}
+function stepFly(t) {
+  const k = Math.min(1, (performance.now() - fly.t0) / fly.dur), e = k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2;
+  controls.target.lerpVectors(fly.fromT, fly.toT, e); camera.position.lerpVectors(fly.fromP, fly.toP, e);
+  if (k >= 1) fly = null;
+}
+
+// ------------------------------------------------------------------ gas detector
+const det = { open: false, x: 0, y: 0 };
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let picking = false, downAt = null;
+renderer.domElement.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('click', (e) => {
+  if (!terrainMesh || (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5)) return;   // it was a drag
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObject(terrainMesh)[0]; if (!hit) return;
+  const local = world.worldToLocal(hit.point.clone());
+  const x = Math.round((local.x + Lx / 2) / H.hello.dx - 0.5), y = Math.round((-local.z + Ly / 2) / H.hello.dx - 0.5);
+  if (picking) { pushSet({ leak_x: x, leak_y: y }); picking = false; document.body.classList.remove('picking'); $('hint').style.display = 'none'; openDrawer(); return; }
+  det.open = true; det.x = x; det.y = y; $('det').classList.add('open'); readDetector(); positionDetector();
+});
+function readDetector() {
+  if (!H.ground || !H.stats) return;
+  const gf = H.hello.ground_factor, a = Math.min(H.gw - 1, Math.floor(det.x / gf)), b = Math.min(H.gh - 1, Math.floor(det.y / gf));
+  const ppm = ppmOfByte(H.ground[b * H.gw + a]), g = H.hello.gases[H.stats.state.gas];
+  const lv = ppm >= g.aegl3 ? 3 : ppm >= g.aegl2 ? 2 : ppm >= g.aegl1 ? 1 : 0;
+  $('d-ppm').textContent = fmt(ppm); $('d-gas').textContent = g.name.toUpperCase();
+  $('d-meter').style.width = `${Math.max(0, Math.min(100, (Math.log10(Math.max(ppm, 0.1)) + 1) / (Math.log10(g.aegl3 * 3) + 1) * 100))}%`;
+  $('d-lv').textContent = lv ? `${LEVEL[lv]} level` : 'Below the discomfort level';
+  const [lx, ly] = leakXY(), km = Math.hypot(det.x - lx, det.y - ly) * H.hello.dx / 1000;
+  const advice = [`Below ${g.aegl1} ppm, under AEGL-1.`, `Above ${g.aegl1} ppm, AEGL-1. Irritation; move away from the cloud.`,
+    `Above ${g.aegl2} ppm, AEGL-2. Stay indoors, close windows.`, `Above ${fmt(g.aegl3)} ppm, AEGL-3. Life-threatening; evacuate.`][lv];
+  $('d-where').innerHTML = `${km < 0.05 ? 'At the tank' : `${km.toFixed(1)} km ${DIRS[bearing(det.x - lx, det.y - ly)]} of the tank`}<br><span>${advice}</span>`;
+}
+function positionDetector() {
+  v3.set(gx(det.x), terrainAt(det.x, det.y) * exag, gz(det.y)).project(camera);
+  const el = $('det'); el.style.left = ((v3.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - v3.y) / 2 * innerHeight) + 'px';
+}
+function closeDetector() { det.open = false; $('det').classList.remove('open'); }
+$('detClose').onclick = closeDetector;
+
+// ------------------------------------------------------------------ legend
+function setLegend() {
+  const hz = '<span><i style="background:var(--a1)"></i>Discomfort</span><span><i style="background:var(--a2)"></i>Serious harm</span><span><i style="background:var(--a3)"></i>Life-threatening</span>';
+  $('legend').innerHTML = view === 'map' ? hz + '<span class="hint">Click the map to measure</span>'
+    : '<span><i style="background:#4d5f52"></i>Ground</span><span><i style="background:#7a91a1"></i>Building</span>' + hz +
+      '<span><svg width="22" height="10" viewBox="0 0 22 10" aria-hidden="true"><path d="M1 5h16" stroke="#bfe6ff" stroke-width="2" stroke-dasharray="5 3"/><path d="M15 1l6 4-6 4z" fill="#bfe6ff"/></svg>Air flow</span>';
+}
+
+// ================================================================================== controls
+let pend = {}, pt = null;
+function pushSet(v) { Object.assign(pend, v); clearTimeout(pt); pt = setTimeout(() => { send({ t: 'set', values: pend }); pend = {}; }, 60); }
+document.querySelectorAll('#viewSwitch button').forEach((b) => b.onclick = () => setView(b.dataset.v));
+$('play').onclick = () => pushSet({ paused: !(H.stats?.state.paused) });
+document.querySelectorAll('#speed button').forEach((b) => b.onclick = () => pushSet({ warp: +b.dataset.w }));
+$('restart').onclick = () => send({ t: 'reset' });
+document.querySelectorAll('#kernel button').forEach((b) => b.onclick = () => pushSet({ kernel: +b.dataset.v }));
+document.querySelectorAll('#basemap button').forEach((b) => b.onclick = () => { document.querySelectorAll('#basemap button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); if (terrainMesh) loadBasemap(b.dataset.v); });
+$('exag').oninput = () => setExag(+$('exag').value);
+const toggle = (btn, panel) => { const open = !panel.classList.contains('open'); panel.classList.toggle('open', open); btn.setAttribute('aria-expanded', String(open)); };
+$('btnHood').onclick = () => toggle($('btnHood'), $('hood'));
+$('btnAbout').onclick = () => $('about').showModal(); $('cmpLink').onclick = () => $('about').showModal();
+$('aboutClose').onclick = () => $('about').close();
+addEventListener('keydown', (e) => {
+  if (e.target.matches('input, select, textarea')) return;
+  if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
+  if (e.key === 'Escape') { closeDetector(); closeDrawer(); $('hood').classList.remove('open'); $('btnHood').setAttribute('aria-expanded', 'false'); }
+});
+
+// ------------------------------------------------------------------ what-if drawer
+let drawerOpen = false;
+const W = { wind: 1.0, dir: 225, stability: 'F', temp: 27, rate: 10, gas: 'styrene', height: 12, decay: 0, preset: 'calm' };
+const PRESETS = { calm: { wind: 1.0, stability: 'F', temp: 27 }, breezy: { wind: 4.0, stability: 'D', temp: 27 }, sunny: { wind: 3.0, stability: 'B', temp: 34 } };
+function openDrawer() { drawerOpen = true; $('drawer').classList.add('open'); $('drawer').setAttribute('aria-hidden', 'false'); $('btnWhat').setAttribute('aria-expanded', 'true'); renderDrawer(); }
+function closeDrawer() { drawerOpen = false; $('drawer').classList.remove('open'); $('drawer').setAttribute('aria-hidden', 'true'); $('btnWhat').setAttribute('aria-expanded', 'false'); }
+$('btnWhat').onclick = () => drawerOpen ? closeDrawer() : openDrawer();
+$('drawerClose').onclick = closeDrawer;
+function syncDrawer(st, wx) {
+  if (st.scenario === 'whatif') Object.assign(W, { wind: st.wind, dir: st.dir, temp: st.temp, rate: st.rate, gas: st.gas, height: st.height, decay: st.decay, stability: st.stability });
+  else if (wx) Object.assign(W, { dir: Math.round(wx.dir || W.dir) });
+}
+function renderDrawer() {
+  document.querySelectorAll('#wxPresets button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.p === W.preset)));
+  document.querySelectorAll('#leakPresets button').forEach((b) => b.setAttribute('aria-checked', String(+b.dataset.r === W.rate)));
+  $('wspeed').value = W.wind; $('w-val').textContent = `${W.wind.toFixed(1)} m/s`;
+  $('w-from').textContent = `Wind from the ${DIRS[Math.round(W.dir / 45) % 8]}`;
+  needle(W.dir); $('dial').setAttribute('aria-valuenow', W.dir);
+  $('gas').value = W.gas; $('stab').value = W.stability; $('temp').value = W.temp; $('o-temp').textContent = `${W.temp} °C`;
+  $('height').value = W.height; $('o-height').textContent = `${W.height} m`; $('decay').value = W.decay; $('o-decay').textContent = `${Math.round(W.decay * 100)}% per hour`;
+}
+document.querySelectorAll('#wxPresets button').forEach((b) => b.onclick = () => { W.preset = b.dataset.p; Object.assign(W, PRESETS[W.preset]); renderDrawer(); });
+document.querySelectorAll('#leakPresets button').forEach((b) => b.onclick = () => { W.rate = +b.dataset.r; renderDrawer(); });
+$('wspeed').oninput = () => { W.wind = +$('wspeed').value; W.preset = null; renderDrawer(); };
+$('gas').onchange = () => { W.gas = $('gas').value; };
+$('stab').onchange = () => { W.stability = $('stab').value; W.preset = null; renderDrawer(); };
+$('temp').oninput = () => { W.temp = +$('temp').value; renderDrawer(); };
+$('height').oninput = () => { W.height = +$('height').value; renderDrawer(); };
+$('decay').oninput = () => { W.decay = +$('decay').value; renderDrawer(); };
+$('runWhat').onclick = () => { send({ t: 'whatif', values: { wind: W.wind, dir: W.dir, temp: W.temp, stability: W.stability, rate: W.rate, gas: W.gas, height: W.height, decay: W.decay } }); closeDrawer(); };
+$('backReal').onclick = () => { send({ t: 'replay' }); closeDrawer(); };
+$('moveLeak').onclick = () => { closeDrawer(); picking = true; document.body.classList.add('picking'); $('hint').textContent = 'Click the ground to put the leak there'; $('hint').style.display = 'block'; };
+
+// wind dial
+(function () {
+  let s = '<circle r="52" fill="#fff" stroke="#cdd3ce"/><g stroke="#87929a" stroke-width="1"><path d="M0 -52v7M0 52v-7M-52 0h7M52 0h-7"/></g>';
+  [['N', 0, -32], ['E', 34, 4], ['S', 0, 40], ['W', -34, 4]].forEach(([t, x, y]) => { s += `<text x="${x}" y="${y}" text-anchor="middle" font-size="11" font-weight="700" fill="#4e5a61" font-family="Archivo, sans-serif">${t}</text>`; });
+  s += '<g id="needle"><path d="M0 -40L8 -18H3V30H-3V-18H-8Z" fill="#f26b1d"/></g><circle r="5" fill="#fff" stroke="#f26b1d" stroke-width="2.5"/>';
+  $('dial').innerHTML = s;
+  const ang = (e) => { const r = $('dial').getBoundingClientRect(); return (Math.atan2(e.clientX - r.left - r.width / 2, -(e.clientY - r.top - r.height / 2)) * 180 / Math.PI + 360) % 360; };
+  let drag = false;
+  const set = (e) => { W.dir = Math.round((ang(e) + 180) % 360); renderDrawer(); };
+  $('dial').addEventListener('pointerdown', (e) => { drag = true; $('dial').setPointerCapture(e.pointerId); set(e); });
+  $('dial').addEventListener('pointermove', (e) => drag && set(e));
+  $('dial').addEventListener('pointerup', () => drag = false);
+  $('dial').addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowUp') W.dir = (W.dir + 5) % 360; else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') W.dir = (W.dir + 355) % 360; else return; e.preventDefault(); renderDrawer(); });
+})();
+function needle(from) { const n = document.getElementById('needle'); if (n) n.setAttribute('transform', `rotate(${(from + 180) % 360})`); }
+
+setLegend();
+connect();
+</script>
+</body>
+</html>
