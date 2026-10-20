@@ -1,6 +1,6 @@
 # sim3d: the 3D Vizag 2020 simulator
 
-Originally written by Dhruvishi Amin as a single Colab notebook; the files here are that notebook's source cells, unchanged, plus a `Makefile`.
+Originally written by Dhruvishi Amin as a single Colab notebook; the source files here are that notebook's cells, unchanged. Added for the repository: a `Makefile` and `experiments.py` (the notebook's run-and-plot cells as a script).
 
 It replays the 7 May 2020 styrene vapour release at LG Polymers, Visakhapatnam:
 
@@ -20,6 +20,6 @@ python data/prepare_site.py --size 5000 --dx 10    # download the site data
 python server/server.py                             # dashboard on http://localhost:8000
 ```
 
-The whole sequence, with figures, is part B of `../notebooks/colab_run_all.ipynb`.
+From the repository root, `make demo3d` starts the dashboard on port 8001 and `make experiments` runs the GPU-vs-CPU check, benchmarks, MPI and replay, writing figures to `sim3d/results/` (code in `experiments.py`, formerly the notebook's cells).
 
 How it relates to the 2D core: the 2D model in `../core2d` is the clean, fully benchmarked stencil study the synopsis promises. This 3D model shows the same parallel techniques on a physically realistic problem.

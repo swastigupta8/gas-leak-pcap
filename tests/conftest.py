@@ -25,9 +25,11 @@ def mpiexec_cmd(n):
     if exe is None:
         pytest.skip("MPI is not installed")
     version = subprocess.run([exe, "--version"], capture_output=True, text=True).stdout
-    extra = ["--oversubscribe"] if "Open MPI" in version else []
-    if "Open MPI" in version and os.geteuid() == 0:
-        extra.append("--allow-run-as-root")  # CI containers and Colab run as root
+    # Open MPI 4.x reports itself as "OpenRTE", 5.x as "Open MPI"; MPICH needs no extra flags.
+    open_mpi = any(t in version for t in ("Open MPI", "OpenRTE", "open-mpi.org"))
+    extra = ["--oversubscribe"] if open_mpi else []  # allow more ranks than CPU cores
+    if open_mpi and os.geteuid() == 0:
+        extra.append("--allow-run-as-root")  # containers often run as root
     return [exe, *extra, "-n", str(n)]
 
 

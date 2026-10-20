@@ -1,6 +1,6 @@
 """
 Smoke tests for the 3D simulator (sim3d/), run through its CPU build so they work without a GPU.
-The GPU-vs-CPU comparison itself needs a GPU and runs in notebooks/colab_run_all.ipynb.
+The GPU-vs-CPU comparison needs a GPU; it is in tests/test_gpu.py and skips without one.
 """
 import json
 import subprocess

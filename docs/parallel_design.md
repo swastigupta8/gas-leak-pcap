@@ -1,6 +1,6 @@
 # Parallel design and performance model
 
-How each implementation parallelises the stencil, what limits its speed, and what to expect before measuring. Run `notebooks/colab_run_all.ipynb` on a T4 to fill in `results/`.
+How each implementation parallelises the stencil, what limits its speed, and what to expect before measuring. Run `make report` on a machine with an NVIDIA GPU to fill in `results/`.
 
 ## 1. The bottleneck is memory, not arithmetic
 
@@ -10,13 +10,13 @@ $$
 \text{arithmetic intensity} = \frac{9 \text{ flop}}{8 \text{ B}} \approx 1.1 \text{ flop/byte}
 $$
 
-A Tesla T4 does about 8.1 TFLOP/s (FP32) against 320 GB/s of memory bandwidth. Below roughly 25 flop/byte (8100 / 320), a kernel is limited by memory. At 1.1 flop/byte, the stencil is deep in memory-bound territory: the GPU's arithmetic units will be idle about 95% of the time no matter how the code is written.
+Take a Tesla T4 as the worked example: about 8.1 TFLOP/s (FP32) against 320 GB/s of memory bandwidth. Laptop GPUs have different figures but a similar ratio; `gas2d_cuda` prints your GPU's peak bandwidth as `peak_gbps`. Below roughly 25 flop/byte (8100 / 320), a kernel is limited by memory. At 1.1 flop/byte, the stencil is deep in memory-bound territory: the GPU's arithmetic units will be idle about 95% of the time no matter how the code is written.
 
 Consequences:
 
-- The upper bound is bandwidth ÷ 8 B = **40 billion cell updates per second** on a T4.
+- The upper bound is bandwidth ÷ 8 B: **40 billion cell updates per second** on a T4.
 - Each GPU kernel is judged by **achieved bandwidth as a % of peak**, which `gas2d_cuda` reports (`pct_of_peak`). Good stencil kernels reach 60–80%.
-- At 60–80% of peak, a 4000 × 4000 step takes about 0.5–0.67 ms: **about 30–40× faster than real time**. *Prediction, to be confirmed by the notebook.*
+- At 60–80% of peak on a T4, a 4000 × 4000 step takes about 0.5–0.67 ms: **about 30–40× faster than real time**. *Prediction; `make bench` measures it on your GPU.*
 
 The same reasoning applies to the CPU: a laptop's ~20–50 GB/s caps it at a few billion updates per second, whatever the core count.
 
@@ -52,7 +52,7 @@ Why blocks and not strips: on an N × N grid with P ranks, strips exchange 2N ce
 
 `--overlap` posts non-blocking `MPI_Isend`/`MPI_Irecv`, updates the inner cells (which need no halo) while messages travel, then waits and updates the one-cell ring at the block edge. `comm_ms` reports only the waiting that could not be hidden.
 
-On a single Colab machine, all ranks share one CPU, so MPI demonstrates correctness and the compute/communication split rather than cluster-scale speed-up.
+On a single machine, all ranks share one CPU, so MPI demonstrates correctness and the compute/communication split rather than cluster-scale speed-up.
 
 ### CUDA
 
@@ -64,7 +64,7 @@ All three kernels launch once per step. The launch boundary is the global barrie
 
 Compiled resource use for sm_75 (from `ptxas -v`): naive 18 registers, shared 22 registers + 1,360 B shared memory, coarse 19 registers. All are low enough for full occupancy.
 
-**Prediction to test:** because the naive kernel's re-reads are mostly cache hits, the shared-memory kernel may be *no faster* on a T4. Shared memory pays off when re-reads would otherwise go to DRAM: wider stencils, 3D, or GPUs with smaller caches. Whichever way the measurement comes out, explaining it with this model is the result.
+**Prediction to test:** because the naive kernel's re-reads are mostly cache hits, the shared-memory kernel may be *no faster* on a recent GPU (T4 or newer). Shared memory pays off when re-reads would otherwise go to DRAM: wider stencils, 3D, or GPUs with smaller caches. Whichever way the measurement comes out, explaining it with this model is the result.
 
 ## 3. Correctness strategy
 
@@ -72,6 +72,6 @@ Compiled resource use for sm_75 (from `ptxas -v`): naive 18 registers, shared 22
 |---|---|
 | OpenMP, MPI (1–4 ranks, blocking and overlapped) = serial | Bit-identical outputs. `-ffp-contract=off` stops the compiler from fusing multiply-adds differently in different builds. |
 | GPU kernel logic = serial | `gas2d_emu` runs the kernels' per-thread code on the CPU with CUDA's block/thread/barrier semantics, on odd grid sizes (97×61, 33×130, 1×7) that leave partial blocks. Shared-memory tiles are filled with NaN first, so a halo cell that was never loaded shows up immediately. |
-| Real GPU = serial | Within 10⁻⁴ of the peak (the GPU's fused multiply-add rounds differently). Run in the Colab notebook. |
+| Real GPU = serial | Within 10⁻⁴ of the peak (the GPU's fused multiply-add rounds differently). `tests/test_gpu.py`, run by `make test` on a GPU machine. |
 | Physics | Analytic puff solution, first-order convergence, mass conservation, positivity (see `model.md`). |
 | CUDA compiles | CI builds every `.cu` file with `nvcc` for sm_75 on each push. |

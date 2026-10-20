@@ -4,14 +4,14 @@ server.py - live 2D dashboard for the core2d simulator.
     browser --(JSON: leak position, wind, leak rate, speed)--> server --(ctypes)--> libgas2d
     browser <--(binary heat-map frame + JSON stats, ~30 per second)-- server
 
-Run (from the repository root, after `make -C core2d` and optionally `make -C core2d cuda`):
+Run from the repository root (after `make setup` once):
 
-    pip install -r dashboard/requirements.txt
-    python dashboard/server.py            then open http://localhost:8000
+    make demo                             then open http://localhost:8000
+    (or directly: .venv/bin/python dashboard/server.py)
 
 Environment variables:
     BACKEND = auto | cuda | cpu   (auto tries the GPU library first)
-    GRID    = cells per side      (default 2000 -> a 2 km x 2 km map at 1 m resolution)
+    GRID    = cells per side      (default: 4000 on the GPU, 2000 on the CPU; 1 cell = 1 m)
     PORT    = 8000
 
 Model assumptions the numbers depend on (see docs/model.md):
@@ -38,8 +38,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "core2d" / "build"
 STATIC = Path(__file__).resolve().parent / "static"
 
-GRID = int(os.environ.get("GRID", "2000"))
-FRAME = min(500, GRID)  # pixels per side sent to the browser
+GRID_ENV = os.environ.get("GRID", "auto")
+GRID = FRAME = 0  # set at startup, once the backend is known (see lifespan)
 H = 1.0  # cell size, m
 D = 10.0  # eddy diffusivity, m^2/s (neutral conditions, urban surface)
 MIX_HEIGHT = 10.0  # depth of the ground layer the gas is mixed through, m
@@ -175,8 +175,13 @@ clients: set[WebSocket] = set()
 @asynccontextmanager
 async def lifespan(_app):
     """Create the simulation once at startup and start the frame loop."""
-    global SIM
-    SIM = Simulation(load_library(os.environ.get("BACKEND", "auto")))
+    global SIM, GRID, FRAME
+    lib = load_library(os.environ.get("BACKEND", "auto"))
+    # A GPU runs the synopsis's full 4000 x 4000 map comfortably faster than real time; a laptop
+    # CPU gets a 2000 x 2000 map so the demo stays responsive.
+    GRID = int(GRID_ENV) if GRID_ENV != "auto" else (4000 if lib.g2s_backend().startswith(b"cuda") else 2000)
+    FRAME = min(500, GRID)  # pixels per side sent to the browser
+    SIM = Simulation(lib)
     print(f"backend: {SIM.backend}  grid: {GRID} x {GRID} at {H} m  dt: {SIM.dt:.4f} s", flush=True)
     task = asyncio.create_task(loop())
     yield

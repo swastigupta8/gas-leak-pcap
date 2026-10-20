@@ -39,7 +39,12 @@ def mpiexec(n):
     if exe is None:
         return None
     ver = subprocess.run([exe, "--version"], capture_output=True, text=True).stdout
-    extra = (["--oversubscribe"] + (["--allow-run-as-root"] if os.geteuid() == 0 else [])) if "Open MPI" in ver else []
+    extra = []
+    # Open MPI 4.x reports itself as "OpenRTE", 5.x as "Open MPI"; MPICH needs no extra flags.
+    if any(t in ver for t in ("Open MPI", "OpenRTE", "open-mpi.org")):
+        extra.append("--oversubscribe")  # allow more ranks than CPU cores
+        if os.geteuid() == 0:
+            extra.append("--allow-run-as-root")
     return [exe, *extra, "-n", str(n)]
 
 
@@ -103,10 +108,13 @@ def plots(R):
     fig, ax = plt.subplots(figsize=(7, 4))
     ax.bar([r["variant"] for r in v], [r["mlups"] for r in v], color="#4878a8")
     ax.set_yscale("log")
+    # Automatic log limits start just under the smallest bar, which makes it look empty; anchor
+    # the axis at half the smallest value so bar heights compare honestly.
+    ax.set_ylim(0.5 * min(r["mlups"] for r in v), 2.0 * max(r["mlups"] for r in v))  # room for labels
     ax.set_ylabel("million cell updates / s (log)")
     ax.set_title(f"{R['grid']} x {R['grid']} grid: throughput by implementation")
     for i, r in enumerate(v):
-        ax.text(i, r["mlups"], f"{r['realtime_factor']:.1f}x", ha="center", va="bottom", fontsize=9)
+        ax.text(i, r["mlups"], f"{r['realtime_factor']:.1f}x real time", ha="center", va="bottom", fontsize=9)
     fig.tight_layout()
     fig.savefig(OUT / "variants.png", dpi=150)
 

@@ -4,7 +4,7 @@ name: CI
 #   cpu-tests   builds the CPU variants (serial, OpenMP, MPI, GPU-kernel emulator, 3D CPU build)
 #               and runs the full test suite with Open MPI on up to 4 ranks
 #   cuda-build  compiles all CUDA code with the real nvcc for the T4 (sm_75). GitHub's runners have
-#               no GPU, so this proves the code builds; running it on a GPU is the Colab notebook's job.
+#               no GPU, so this proves the code builds; `make test` on a GPU machine runs it.
 on:
   push:
     branches: [main]

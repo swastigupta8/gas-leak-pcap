@@ -11,7 +11,8 @@
 CC      ?= gcc
 MPICC   ?= mpicc
 NVCC    ?= nvcc
-# sm_75 = Tesla T4 (Colab's free GPU). Override e.g. CUDA_ARCH=sm_86 for an RTX 30-series card.
+# Default sm_75 (Tesla T4, used by CI). `make build` at the repo root passes CUDA_ARCH=native,
+# which compiles for whichever NVIDIA GPU is installed.
 CUDA_ARCH ?= sm_75
 
 # ARCH is separate so CI can pick a portable target without replacing the flags below (a
