@@ -4,7 +4,9 @@
 
 Parallel stencil computation for predicting where a toxic gas plume goes, fast enough to stay ahead of the gas. Built for the Parallel Computer Architecture and Programming course.
 
-**Team:** Swasti Gupta, Arisha Jaiswal, Dhruvishi Amin, Manya Vishwanath
+**Team:** Swasti Gupta, Arisha Jaiswal, Dhruvishi Amin, Manya Vishwanath (who did what: [Team](#team))
+
+**Report:** [`docs/report/Gas_Leak_PCAP_IEEE_Report.docx`](docs/report/Gas_Leak_PCAP_IEEE_Report.docx) (editable Word file)
 
 | Part | What it is |
 |---|---|
@@ -106,3 +108,12 @@ Each prints one JSON line: ms per step, million cell updates per second (MLUPS),
 ## Limitations
 
 A teaching and benchmarking model: 2D, flat ground, uniform wind, constant turbulent diffusivity, first-order advection. Not a tool for real emergency decisions. Details in [model.md §5](docs/model.md#5-what-the-model-leaves-out).
+
+## Team
+
+| Member | Responsibility |
+|---|---|
+| Swasti Gupta | CUDA kernels (naive, shared-memory tiled, thread-coarsened), the CPU emulator of the CUDA execution model, GPU benchmarking, roofline performance model, report |
+| Arisha Jaiswal | Mathematical model and stability analysis, serial C baseline, OpenMP parallelisation, validation against the analytic solution |
+| Dhruvishi Amin | The entire 3D Visakhapatnam simulator in [`sim3d/`](sim3d), conceived, designed and built by her: D3Q19 Lattice Boltzmann air flow with Smagorinsky turbulence and buoyancy, gas transport, the real terrain/building/weather data pipeline, the single-source CPU/GPU build, its MPI version, the 2020 replay and the 3D dashboard |
+| Manya Vishwanath | MPI 2D decomposition with derived datatypes and overlapped halo exchange, the equivalence test suite, the live 2D dashboard, build system and CI |
