@@ -100,10 +100,14 @@ Each prints one JSON line: ms per step, million cell updates per second (MLUPS),
 
 ## Verified so far
 
-- On Ubuntu 24.04 with GCC 13 and Open MPI 4.1, from a clean copy: `make setup` completes, 40 tests pass and the 5 GPU tests skip. OpenMP and MPI (1–4 ranks, blocking and overlapped) are bit-identical to serial, and all three GPU kernels are bit-identical under emulation.
-- Both dashboards start and stream on the CPU backend.
-- All CUDA sources compile for sm_75 (checked with `ptxas`); CI builds them with `nvcc` 12.4 on every push.
-- **Not yet run on a real GPU.** GPU timings and the real GPU-vs-CPU tests come from `make setup` / `make report` on an NVIDIA machine. Do not quote GPU numbers until then.
+On a laptop with an Intel Core i5-13500H and an NVIDIA RTX 3050 4 GB Laptop GPU (Ubuntu 24.04 under WSL2, CUDA 12.6):
+
+- **All 45 tests pass**, including the 5 GPU tests. OpenMP and MPI (1–4 ranks, blocking and overlapped) are bit-identical to serial; the three CUDA kernels match serial within 10⁻⁴ of peak on the real GPU; the 3D simulator gives the same result on GPU and CPU.
+- **4000 × 4000 grid:** serial C 26.6 ms per step (0.77× real time); OpenMP, 16 threads, 15.4 ms; MPI, 16 ranks with overlap, 7.6 ms; CUDA naive 1.22 ms, **16.8× real time and 21.8× faster than serial**.
+- **The kernels run at the board's measured bandwidth ceiling:** a device-to-device copy reaches 102.8 GB/s, and the naive and tiled kernels match it. Tiling gained nothing; coarsening was 9% slower.
+- **Real-time objective:** 30× is not reached at 4000 × 4000 on this GPU, but is at 2048 × 2048 (63×).
+
+Raw results and charts: [`docs/report/results/`](docs/report/results). Full analysis: the [report](docs/report/Gas_Leak_PCAP_IEEE_Report.docx), Section VIII.
 
 ## Limitations
 

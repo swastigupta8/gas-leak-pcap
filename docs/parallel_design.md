@@ -15,7 +15,7 @@ Take a Tesla T4 as the worked example: about 8.1 TFLOP/s (FP32) against 320 GB/s
 Consequences:
 
 - The upper bound is bandwidth ÷ 8 B: **40 billion cell updates per second** on a T4.
-- Each GPU kernel is judged by **achieved bandwidth against a measured ceiling**: `gas2d_cuda` times a device-to-device copy of the field, which moves exactly the stencil's minimum traffic, and reports `copy_gbps` and `pct_of_copy`. We use a measured ceiling because the theoretical peak computed from driver-reported clocks was wrong by 2× on an RTX 3050 laptop GPU under WSL2 (112 instead of 224 GB/s). Good stencil kernels reach 60–80% of theoretical peak.
+- Each GPU kernel is judged by **achieved bandwidth against a measured ceiling**: `gas2d_cuda` times a device-to-device copy of the field, which moves exactly the stencil's minimum traffic, and reports `copy_gbps` and `pct_of_copy`. We use a measured ceiling because theoretical figures are unreliable guides for a specific board: on the RTX 3050 laptop GPU we measured, the driver reports 112 GB/s while the model's common configuration is listed at 192 GB/s. The copy reached 102.8 GB/s (92% of the driver's figure) and the naive and tiled kernels matched it. Good stencil kernels reach 60–80% of theoretical peak.
 - At 60–80% of peak on a T4, a 4000 × 4000 step takes about 0.5–0.67 ms: **about 30–40× faster than real time**. *Prediction; `make bench` measures it on your GPU.*
 
 The same reasoning applies to the CPU: a laptop's ~20–50 GB/s caps it at a few billion updates per second, whatever the core count.

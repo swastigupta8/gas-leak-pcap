@@ -31,8 +31,9 @@ float g2_gpu_run(g2_gpu *g, g2_kernel kernel, int steps, g2_weights k, long long
 void g2_gpu_frame(g2_gpu *g, float *host, int fx, int fy);
 
 /* Name of the GPU, and the theoretical memory bandwidth in GB/s computed from the clock and bus
- * width the driver reports (0 if unknown). Not reliable everywhere: under WSL2 an RTX 3050 laptop
- * GPU reported half its real figure. Use g2_gpu_copy_gbps as the reference instead. */
+ * width the driver reports (0 if unknown). It describes this particular board and can differ from
+ * the published figure for the GPU model (an RTX 3050 laptop GPU reported 112 GB/s; the model's
+ * common configuration is listed at 192 GB/s). The measured g2_gpu_copy_gbps is the reference. */
 void g2_gpu_info(char *name, int len, double *driver_peak_gbps);
 
 /* Measured practical bandwidth ceiling in GB/s: a device-to-device copy of the field. A copy moves

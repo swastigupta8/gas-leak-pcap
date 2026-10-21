@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 
     /* Reference ceiling, measured right after the run so the GPU is in the same power state:
      * the stencil's effective bandwidth as a fraction of a plain copy's. The driver's theoretical
-     * figure is reported too, but only for information (see cuda_backend.h). */
+     * figure is reported too, for information (see cuda_backend.h). */
     double copy_gbps = g2_gpu_copy_gbps(&g, 20);
 
     char name[128], extra[400];

@@ -157,7 +157,7 @@ def plots(R):
         # Ceiling = the measured device-to-device copy on the LARGEST grid: there the data far
         # exceeds the L2 cache, so the copy runs at DRAM speed. (Small grids fit in L2, where a copy
         # is faster than DRAM and would not be a fair ceiling.) The driver's theoretical peak is
-        # not drawn: it was wrong by 2x on at least one laptop under WSL2.
+        # not drawn: a measured ceiling is what this board actually achieves.
         top = max(g, key=lambda r: r["nx"])
         ceiling = top.get("copy_gbps", 0)
         if ceiling:
