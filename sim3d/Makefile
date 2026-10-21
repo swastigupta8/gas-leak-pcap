@@ -28,10 +28,17 @@ $(B)/bench_cpu: core/bench.cu core/testcase.h core/kernels.cuh core/compat.h | $
 $(B)/mpi_cpu: core/mpi_sim.cu core/testcase.h core/kernels.cuh core/compat.h | $(B)
 	$(MPICXX) $(CXXFLAGS) -x c++ core/mpi_sim.cu -o $@
 
-cuda: | $(B)
-	$(NVCC) -O3 -arch=$(CUDA_ARCH) -Xcompiler -fPIC -shared core/sim.cu -o $(B)/libsim_cuda.so
-	$(NVCC) -O3 -arch=$(CUDA_ARCH) core/bench.cu -o $(B)/bench_cuda
-	$(NVCC) -O3 -arch=$(CUDA_ARCH) -ccbin $(MPICXX) core/mpi_sim.cu -o $(B)/mpi_cuda
+# One rule per file, so `make cuda` only recompiles what changed (nvcc is slow).
+cuda: $(B)/libsim_cuda.so $(B)/bench_cuda $(B)/mpi_cuda
+
+$(B)/libsim_cuda.so: core/sim.cu core/kernels.cuh core/compat.h | $(B)
+	$(NVCC) -O3 -arch=$(CUDA_ARCH) -Xcompiler -fPIC -shared core/sim.cu -o $@
+
+$(B)/bench_cuda: core/bench.cu core/testcase.h core/kernels.cuh core/compat.h | $(B)
+	$(NVCC) -O3 -arch=$(CUDA_ARCH) core/bench.cu -o $@
+
+$(B)/mpi_cuda: core/mpi_sim.cu core/testcase.h core/kernels.cuh core/compat.h | $(B)
+	$(NVCC) -O3 -arch=$(CUDA_ARCH) -ccbin $(MPICXX) core/mpi_sim.cu -o $@
 
 clean:
 	rm -rf $(B)
