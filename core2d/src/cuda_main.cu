@@ -45,12 +45,18 @@ int main(int argc, char **argv) {
     g2_gpu_download(&g, host);
     double ms_step = c.steps > 0 ? ms / c.steps : 0.0;
 
-    char name[128], extra[320];
-    double peak;
-    g2_gpu_info(name, sizeof name, &peak);
+    /* Reference ceiling, measured right after the run so the GPU is in the same power state:
+     * the stencil's effective bandwidth as a fraction of a plain copy's. The driver's theoretical
+     * figure is reported too, but only for information (see cuda_backend.h). */
+    double copy_gbps = g2_gpu_copy_gbps(&g, 20);
+
+    char name[128], extra[400];
+    double driver_peak;
+    g2_gpu_info(name, sizeof name, &driver_peak);
     double gbps = ms_step > 0 ? 8.0 * c.nx * (double)c.ny / (ms_step * 1e6) : 0.0;
-    snprintf(extra, sizeof extra, "\"device\":\"%s\",\"peak_gbps\":%.4g,\"pct_of_peak\":%.4g", name, peak,
-             peak > 0 ? 100.0 * gbps / peak : 0.0);
+    snprintf(extra, sizeof extra,
+             "\"device\":\"%s\",\"copy_gbps\":%.4g,\"pct_of_copy\":%.4g,\"driver_peak_gbps\":%.4g", name,
+             copy_gbps, copy_gbps > 0 ? 100.0 * gbps / copy_gbps : 0.0, driver_peak);
     g2_report(&c, &p, ms_step, extra, host);
 
     g2_gpu_destroy(&g);

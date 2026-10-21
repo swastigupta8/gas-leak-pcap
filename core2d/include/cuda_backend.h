@@ -30,8 +30,15 @@ float g2_gpu_run(g2_gpu *g, g2_kernel kernel, int steps, g2_weights k, long long
 /* Max-pooled fx x fy image of the current field into host memory (row-major, south row first). */
 void g2_gpu_frame(g2_gpu *g, float *host, int fx, int fy);
 
-/* Name of the GPU and its theoretical memory bandwidth in GB/s (0 if unknown). */
-void g2_gpu_info(char *name, int len, double *peak_gbps);
+/* Name of the GPU, and the theoretical memory bandwidth in GB/s computed from the clock and bus
+ * width the driver reports (0 if unknown). Not reliable everywhere: under WSL2 an RTX 3050 laptop
+ * GPU reported half its real figure. Use g2_gpu_copy_gbps as the reference instead. */
+void g2_gpu_info(char *name, int len, double *driver_peak_gbps);
+
+/* Measured practical bandwidth ceiling in GB/s: a device-to-device copy of the field. A copy moves
+ * exactly the stencil's minimum traffic (one read and one write per cell), so its speed is what a
+ * perfect stencil kernel could reach on this GPU, in its current power state. */
+double g2_gpu_copy_gbps(g2_gpu *g, int reps);
 
 int g2_kernel_from_name(const char *name); /* -1 if unknown */
 

@@ -94,7 +94,7 @@ Each prints one JSON line: ms per step, million cell updates per second (MLUPS),
 ## Key design points
 
 - **Real-time factor, not iterations per second.** At 1 m cells the stability limit forces Δt ≈ 0.02 s, so 49 steps make one simulated second ([model.md §3](docs/model.md#3-stability-the-time-step-is-not-free)).
-- **Memory-bound by design.** 9 flops per 8 bytes moved, so each GPU kernel is measured as a percentage of peak memory bandwidth ([parallel_design.md](docs/parallel_design.md)).
+- **Memory-bound by design.** 9 flops per 8 bytes moved, so each GPU kernel is measured against the bandwidth of a plain device-to-device copy, the practical ceiling ([parallel_design.md](docs/parallel_design.md)).
 - **One stencil function everywhere.** `g2_stencil()` in `core2d/include/gas2d.h` is shared by every CPU and GPU version, with a fixed floating-point evaluation order, so the parallel versions are checked bit for bit against the serial one.
 - **GPU kernels tested without a GPU.** `gas2d_emu` runs the kernels' per-thread code on the CPU with CUDA's thread, block and barrier semantics, so tiling bugs fail the tests on any machine.
 

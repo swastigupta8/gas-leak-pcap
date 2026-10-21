@@ -10,12 +10,12 @@ $$
 \text{arithmetic intensity} = \frac{9 \text{ flop}}{8 \text{ B}} \approx 1.1 \text{ flop/byte}
 $$
 
-Take a Tesla T4 as the worked example: about 8.1 TFLOP/s (FP32) against 320 GB/s of memory bandwidth. Laptop GPUs have different figures but a similar ratio; `gas2d_cuda` prints your GPU's peak bandwidth as `peak_gbps`. Below roughly 25 flop/byte (8100 / 320), a kernel is limited by memory. At 1.1 flop/byte, the stencil is deep in memory-bound territory: the GPU's arithmetic units will be idle about 95% of the time no matter how the code is written.
+Take a Tesla T4 as the worked example: about 8.1 TFLOP/s (FP32) against 320 GB/s of memory bandwidth. Laptop GPUs have different figures but a similar ratio. Below roughly 25 flop/byte (8100 / 320), a kernel is limited by memory. At 1.1 flop/byte, the stencil is deep in memory-bound territory: the GPU's arithmetic units will be idle about 95% of the time no matter how the code is written.
 
 Consequences:
 
 - The upper bound is bandwidth ÷ 8 B: **40 billion cell updates per second** on a T4.
-- Each GPU kernel is judged by **achieved bandwidth as a % of peak**, which `gas2d_cuda` reports (`pct_of_peak`). Good stencil kernels reach 60–80%.
+- Each GPU kernel is judged by **achieved bandwidth against a measured ceiling**: `gas2d_cuda` times a device-to-device copy of the field, which moves exactly the stencil's minimum traffic, and reports `copy_gbps` and `pct_of_copy`. We use a measured ceiling because the theoretical peak computed from driver-reported clocks was wrong by 2× on an RTX 3050 laptop GPU under WSL2 (112 instead of 224 GB/s). Good stencil kernels reach 60–80% of theoretical peak.
 - At 60–80% of peak on a T4, a 4000 × 4000 step takes about 0.5–0.67 ms: **about 30–40× faster than real time**. *Prediction; `make bench` measures it on your GPU.*
 
 The same reasoning applies to the CPU: a laptop's ~20–50 GB/s caps it at a few billion updates per second, whatever the core count.

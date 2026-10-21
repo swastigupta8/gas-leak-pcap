@@ -139,6 +139,25 @@ void g2_gpu_frame(g2_gpu *g, float *host, int fx, int fy) {
     CUDA_CHECK(cudaMemcpy(host, g->frame, sizeof(float) * fx * fy, cudaMemcpyDeviceToHost));
 }
 
+double g2_gpu_copy_gbps(g2_gpu *g, int reps) {
+    const size_t bytes = g->n * sizeof(float);
+    /* Copies the current field (a) into the spare buffer (b); `a` is not modified. */
+    CUDA_CHECK(cudaMemcpy(g->b, g->a, bytes, cudaMemcpyDeviceToDevice)); /* warm-up */
+    cudaEvent_t e0, e1;
+    CUDA_CHECK(cudaEventCreate(&e0));
+    CUDA_CHECK(cudaEventCreate(&e1));
+    CUDA_CHECK(cudaEventRecord(e0));
+    for (int r = 0; r < reps; ++r) CUDA_CHECK(cudaMemcpy(g->b, g->a, bytes, cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaEventRecord(e1));
+    CUDA_CHECK(cudaEventSynchronize(e1));
+    float ms = 0.0f;
+    CUDA_CHECK(cudaEventElapsedTime(&ms, e0, e1));
+    cudaEventDestroy(e0);
+    cudaEventDestroy(e1);
+    /* Each copy reads `bytes` and writes `bytes`. */
+    return ms > 0 ? 2.0 * (double)bytes * reps / (ms * 1e6) : 0.0;
+}
+
 void g2_gpu_info(char *name, int len, double *peak_gbps) {
     int dev = 0;
     cudaDeviceProp prop;

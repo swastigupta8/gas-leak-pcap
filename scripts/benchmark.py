@@ -74,7 +74,8 @@ def main():
             v.append(run([BUILD / "gas2d_cuda", "--variant", k, *grid(N, gpu_steps)]))
     R["variants"] = v
     for r in v:
-        print(f"   {r['variant']:8s} {r['ms_per_step']:9.3f} ms/step  {r['mlups']:9.0f} MLUPS  {r['realtime_factor']:8.1f}x real time")
+        ceiling = f"  {r['gbps']:6.1f} GB/s = {r['pct_of_copy']:.0f}% of copy ({r['copy_gbps']:.0f} GB/s)" if "copy_gbps" in r else ""
+        print(f"   {r['variant']:8s} {r['ms_per_step']:9.3f} ms/step  {r['mlups']:9.0f} MLUPS  {r['realtime_factor']:8.1f}x real time{ceiling}")
 
     print("2. OpenMP strong scaling")
     threads = sorted({1, 2, 4, 8, 16, 32, cores} & set(range(1, cores + 1)))
@@ -146,16 +147,22 @@ def plots(R):
         fig.tight_layout()
         fig.savefig(OUT / "mpi.png", dpi=150)
 
-    # 4. GPU achieved bandwidth vs peak
+    # 4. GPU achieved bandwidth vs the measured copy ceiling
     if R.get("gpu_sizes"):
         g = R["gpu_sizes"]
         fig, ax = plt.subplots(figsize=(6, 4))
         for k in ("naive", "shared", "coarse"):
             rows = [r for r in g if r["variant"] == k]
             ax.plot([r["nx"] for r in rows], [r["gbps"] for r in rows], "o-", label=k)
-        peak = g[0].get("peak_gbps", 0)
-        if peak:
-            ax.axhline(peak, ls="--", color="grey", label=f"peak {peak:.0f} GB/s")
+        # Ceiling = the measured device-to-device copy on the LARGEST grid: there the data far
+        # exceeds the L2 cache, so the copy runs at DRAM speed. (Small grids fit in L2, where a copy
+        # is faster than DRAM and would not be a fair ceiling.) The driver's theoretical peak is
+        # not drawn: it was wrong by 2x on at least one laptop under WSL2.
+        top = max(g, key=lambda r: r["nx"])
+        ceiling = top.get("copy_gbps", 0)
+        if ceiling:
+            ax.axhline(ceiling, ls="--", color="grey", label=f"copy ceiling {ceiling:.0f} GB/s (measured)")
+        ax.set_ylim(0, 1.1 * max([ceiling] + [r["gbps"] for r in g]))  # headroom above the top line
         ax.set_xscale("log", base=2)
         ax.set_xlabel("grid side (cells)")
         ax.set_ylabel("effective bandwidth (GB/s)")
