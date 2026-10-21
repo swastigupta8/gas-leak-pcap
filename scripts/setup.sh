@@ -14,14 +14,19 @@ cd "$(dirname "$0")/.."
 
 step() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 
-step "1/4 System packages (asks for your Linux password)"
-sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential make openmpi-bin libopenmpi-dev python3 python3-venv python3-pip wget
+step "1/4 System packages"
+echo "sudo asks for your Linux password. Nothing appears on screen while you type it; that is normal."
+echo "After that this step downloads compilers and MPI (a few hundred MB): 5-10 minutes on a fresh Ubuntu."
+sudo -v   # ask for the password once, up front, before the long downloads start
+# Progress is shown on purpose (no -qq): a silent install looks frozen. The lock timeout makes apt
+# wait for Ubuntu's own first-boot updates (unattended-upgrades) instead of failing.
+sudo apt-get update
+sudo apt-get install -y -o DPkg::Lock::Timeout=600 build-essential make openmpi-bin libopenmpi-dev python3 python3-venv python3-pip wget
 
 step "2/4 Python environment (.venv)"
 python3 -m venv .venv
-.venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r requirements.txt
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
 echo "installed: $(.venv/bin/python -c 'import numpy, fastapi, matplotlib; print("numpy", numpy.__version__, "| fastapi", fastapi.__version__)')"
 
 step "3/4 CUDA"
@@ -37,14 +42,15 @@ if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
             repo="ubuntu${VERSION_ID//./}"                     # e.g. ubuntu2404
         fi
         echo "Installing the CUDA 12.6 toolkit from NVIDIA's $repo repository (about 3 GB)..."
-        wget -q "https://developer.download.nvidia.com/compute/cuda/repos/${repo}/x86_64/cuda-keyring_1.1-1_all.deb" \
+        wget --progress=dot:giga "https://developer.download.nvidia.com/compute/cuda/repos/${repo}/x86_64/cuda-keyring_1.1-1_all.deb" \
             -O /tmp/cuda-keyring.deb
         sudo dpkg -i /tmp/cuda-keyring.deb
-        sudo apt-get update -qq
+        sudo apt-get update
         # 12.6 supports the widest range of GPUs (CUDA 13 dropped GPUs older than Turing). If it is
         # ever withdrawn, fall back to the newest toolkit. Both are toolkit-only packages: the
         # `cuda`, `cuda-13` and `cuda-drivers` packages would pull in a Linux driver, which breaks WSL.
-        sudo apt-get install -y -qq cuda-toolkit-12-6 || sudo apt-get install -y -qq cuda-toolkit
+        sudo apt-get install -y -o DPkg::Lock::Timeout=600 cuda-toolkit-12-6 \
+            || sudo apt-get install -y -o DPkg::Lock::Timeout=600 cuda-toolkit
     fi
     # Make nvcc available in future terminals too (the Makefile adds it for itself either way).
     if ! grep -q '/usr/local/cuda/bin' ~/.bashrc; then
