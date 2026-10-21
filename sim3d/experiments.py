@@ -82,6 +82,32 @@ def plt():
 
 def cmd_site(a):
     subprocess.run([sys.executable, str(HERE / "data" / "prepare_site.py"), "--size", "5000", "--dx", "10"], check=True)
+    plot_site(SITE)
+
+
+def plot_site(path):
+    """Map of the downloaded site and the weather that night (Dhruvishi's notebook cell)."""
+    p = plt()
+    d = np.load(path)
+    meta = json.loads(str(d["meta"]))
+    fig, ax = p.subplots(1, 2, figsize=(14, 6))
+    ax[0].imshow(d["terrain"], origin="lower", cmap="terrain")
+    ax[0].set_title("Terrain height (m above lowest point)")
+    ax[1].imshow(d["buildings"] > 0, origin="lower", cmap="Greys")
+    ax[1].set_title("Buildings (OpenStreetMap)")
+    for axis in ax:
+        axis.plot(meta["plant"]["x"], meta["plant"]["y"], "r^", ms=10)
+        for pl in meta.get("places", [])[:25]:
+            rep = pl.get("reported", False)
+            axis.plot(pl["x"], pl["y"], "o", color="orange" if rep else "k", ms=4)
+            axis.text(pl["x"] + 3, pl["y"] + 3, ("* " if rep else "") + pl["name"], fontsize=7)
+    p.tight_layout()
+    RESULTS.mkdir(exist_ok=True)
+    p.savefig(RESULTS / "site.png", dpi=140)
+    print("Weather that night (IST):")
+    for h in meta.get("weather", [])[:8]:
+        print(f"  {h['t'][11:16]}  {h['temp']:.1f} °C  wind {h['wind']:.1f} m/s from {h['dir']:.0f}°  cloud {h['cloud']}%")
+    print(f"site: wrote {RESULTS / 'site.png'}")
 
 
 def cmd_check(a):
